@@ -839,12 +839,106 @@ static UBOOL UE1AndroidLocalizationFile( const char* Package, char* Out, INT Out
 	return Found;
 }
 
+// Lower-case alphanumeric words of a text.
+static INT UE1AndroidWords( const char* Text, char Words[][32], INT MaxWords )
+{
+	INT Num = 0;
+	while( *Text && Num<MaxWords )
+	{
+		while( *Text && !appIsAlnum(*Text) )
+			Text++;
+		INT Len = 0;
+		while( appIsAlnum(*Text) )
+		{
+			if( Len < 31 )
+				Words[Num][Len++] = ( *Text>='A' && *Text<='Z' ) ? (char)(*Text - 'A' + 'a') : *Text;
+			Text++;
+		}
+		if( Len )
+			Words[Num++][Len] = 0;
+	}
+	return Num;
+}
+
+static UBOOL UE1AndroidHasWord( char Words[][32], INT Num, const char* Word )
+{
+	for( INT i=0; i<Num; i++ )
+		if( !appStrcmp( Words[i], Word ) )
+			return 1;
+	return 0;
+}
+
+// True when two English texts are the same message: most words shared and
+// the same numbers ("15 shells" vs "12 shells" is a different message).
+static UBOOL UE1AndroidSameEnglish( const char* A, const char* B )
+{
+	static char WA[64][32], WB[64][32];
+	INT NA = UE1AndroidWords( A, WA, 64 ), NB = UE1AndroidWords( B, WB, 64 );
+	if( !NA || !NB )
+		return NA==NB;
+	INT Common = 0;
+	for( INT i=0; i<NA; i++ )
+	{
+		UBOOL Found = UE1AndroidHasWord( WB, NB, WA[i] );
+		if( Found )
+			Common++;
+		else if( appIsDigit(WA[i][0]) )
+			return 0;
+	}
+	for( INT i=0; i<NB; i++ )
+		if( appIsDigit(WB[i][0]) && !UE1AndroidHasWord( WA, NA, WB[i] ) )
+			return 0;
+	return Common*10 >= (NA+NB-Common)*6;
+}
+
+// OldUnreal files document the English source of each entry as
+// "; EN: Key=English".  Keys were renumbered between v200 and 227 in a few
+// menus, so only use a translation whose English matches the compiled-in
+// English text, otherwise look for the entry whose English does.  Files
+// without these comments (retail localizations) are used as-is.
+static UBOOL UE1AndroidFindTranslation( const char* Section, const char* Key, const char* English, const char* File, char* Out, INT OutSize )
+{
+	char EnKey[300], En[1024];
+	appSprintf( EnKey, "; EN: %s", Key );
+	UBOOL HasValue = GetConfigString( Section, Key, Out, OutSize, File );
+	if( !English )
+		return HasValue;
+	if( GetConfigString( Section, EnKey, En, ARRAY_COUNT(En), File ) )
+	{
+		if( HasValue && UE1AndroidSameEnglish( En, English ) )
+			return 1;
+	}
+	else if( HasValue )
+		return 1;
+
+	// Search the section for the entry whose English matches.
+	static char Buffer[65536 + 2048]; // GetConfigSection only bounds the keys.
+	if( !GetConfigSection( Section, Buffer, 65536, File ) )
+		return 0;
+	for( const char* Entry=Buffer; *Entry; Entry+=appStrlen(Entry)+1 )
+	{
+		if( appStrnicmp( Entry, "; EN: ", 6 ) )
+			continue;
+		const char* Eq = appStrchr( Entry, '=' );
+		if( !Eq || !UE1AndroidSameEnglish( Eq+1, English ) )
+			continue;
+		char OtherKey[256];
+		INT KeyLen = Min<INT>( Eq-(Entry+6), ARRAY_COUNT(OtherKey)-1 );
+		appStrncpy( OtherKey, Entry+6, KeyLen+1 );
+		OtherKey[KeyLen] = 0;
+		if( GetConfigString( Section, OtherKey, Out, OutSize, File ) )
+			return 1;
+	}
+	return 0;
+}
+
 static void UE1AndroidImportLocalized( UObject* Object, UClass* Class, const char* Section, char Files[][256], INT NumFiles )
 {
 	for( TFieldIterator<UProperty> It(Class); It; ++It )
 	{
 		if( !(It->PropertyFlags & CPF_Localized) )
 			continue;
+		UBOOL IsString = It->IsA( UStringProperty::StaticClass );
 		for( INT i=0; i<It->ArrayDim; i++ )
 		{
 			char TempKey[256], Value[1024]="";
@@ -854,11 +948,15 @@ static void UE1AndroidImportLocalized( UObject* Object, UClass* Class, const cha
 				appSprintf( TempKey, "%s[%i]", It->GetName(), i );
 				Key = TempKey;
 			}
+			BYTE* Data = (BYTE*)Object + It->Offset + i*It->GetElementSize();
+			char English[1024] = "";
+			if( IsString )
+				appStrncpy( English, (const char*)Data, ARRAY_COUNT(English) );
 			for( INT f=0; f<NumFiles; f++ )
 			{
-				if( GetConfigString( Section, Key, Value, ARRAY_COUNT(Value), Files[f] ) )
+				if( UE1AndroidFindTranslation( Section, Key, IsString ? English : NULL, Files[f], Value, ARRAY_COUNT(Value) ) )
 				{
-					It->ImportText( Value, (BYTE*)Object + It->Offset + i*It->GetElementSize(), 1 );
+					It->ImportText( Value, Data, 1 );
 					break;
 				}
 			}

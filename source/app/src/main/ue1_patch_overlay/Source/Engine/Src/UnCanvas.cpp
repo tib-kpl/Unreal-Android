@@ -94,15 +94,42 @@ static BYTE AndroidCanvasFoldAccent( BYTE C )
 	}
 }
 
-// The stock big/large UI fonts have no valid accented glyphs (Epic's later
-// builds switch to MedFont for non-INT languages).  Fold accents to ASCII for
-// those fonts and for any glyph the font does not provide.
+// Windows-1252 0x80..0xFF -> DOS code page 850, the order the stock v200 font
+// bitmaps use for accented letters (0 = no CP850 equivalent).
+static const BYTE GAndroidCp1252ToCp850[128] =
+{
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, // 80
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, // 90
+	0xFF,0xAD,0xBD,0x9C,0xCF,0xBE,0xDD,0xF5,0xF9,0xB8,0xA6,0xAE,0xAA,0xF0,0xA9,0xEE, // A0
+	0xF8,0xF1,0xFD,0xFC,0xEF,0xE6,0xF4,0xFA,0xF7,0xFB,0xA7,0xAF,0xAC,0xAB,0xF3,0xA8, // B0
+	0xB7,0xB5,0xB6,0xC7,0x8E,0x8F,0x92,0x80,0xD4,0x90,0xD2,0xD3,0xDE,0xD6,0xD7,0xD8, // C0
+	0xD1,0xA5,0xE3,0xE0,0xE2,0xE5,0x99,0x9E,0x9D,0xEB,0xE9,0xEA,0x9A,0xED,0xE8,0xE1, // D0
+	0x85,0xA0,0x83,0xC6,0x84,0x86,0x91,0x87,0x8A,0x82,0x88,0x89,0x8D,0xA1,0x8C,0x8B, // E0
+	0xD0,0xA4,0x95,0xA2,0x93,0xE4,0x94,0xF6,0x9B,0x97,0xA3,0x96,0x81,0xEC,0xE7,0x98, // F0
+};
+
+static UBOOL AndroidCanvasHasGlyph( UFont* Font, BYTE C )
+{
+	return C < Font->Characters.Num() && Font->Characters(C).USize > 0;
+}
+
+// Map a Windows-1252 text byte to the glyph index to draw:
+// - accented letters use their CP850 position (the stock font layout); the
+//   big/large fonts have no usable accented glyphs, and any glyph a font
+//   lacks, fall back to the plain letter;
+// - lower-case letters a font lacks (big/large fonts are upper-case only)
+//   are drawn in upper case.
 static BYTE AndroidCanvasGlyph( UCanvas* Canvas, UFont* Font, BYTE C )
 {
-	if( C<0x80 )
-		return C;
-	if( Font==Canvas->BigFont || Font==Canvas->LargeFont || C>=Font->Characters.Num() || Font->Characters(C).USize<=0 )
-		return AndroidCanvasFoldAccent( C );
+	if( C>=0x80 )
+	{
+		BYTE Dos = GAndroidCp1252ToCp850[C-0x80];
+		if( Dos && Font!=Canvas->BigFont && Font!=Canvas->LargeFont && AndroidCanvasHasGlyph( Font, Dos ) )
+			return Dos;
+		C = AndroidCanvasFoldAccent( C );
+	}
+	if( C>='a' && C<='z' && !AndroidCanvasHasGlyph( Font, C ) )
+		C = C - 'a' + 'A';
 	return C;
 }
 #endif
@@ -729,20 +756,17 @@ void UCanvas::execDrawText( FFrame& Stack, BYTE*& Result )
 		StrLen( Font, TextXL, TextYL, AndroidDrawTextV125 );
 		CurX = Max( 0.0f, 0.5f*(ClipX - TextXL) );
 	}
-	// UnrealQuitMenu: YesSelString/NoSelString 48px after MenuTitle ("Quit?")
-	// at ClipX/2-59 -> push them past a longer translated title.
-	static FLOAT AndroidQuitTitleEndX = -1.0f, AndroidQuitTitleY = -1.0f;
-	UBOOL AndroidIsQuitTitle = 0;
-	if( AndroidCanvasActiveMenuIs( this, "UnrealQuitMenu" ) )
+	// UnrealQuitMenu: YesSelString/NoSelString ("[YES]  No") are drawn 48px
+	// after MenuTitle on the same row -> keep them clear of a longer title.
+	static FLOAT AndroidQuitLastEndX = -1.0f, AndroidQuitLastY = -1.0f;
+	const UBOOL AndroidInQuitMenu = AndroidCanvasActiveMenuIs( this, "UnrealQuitMenu" );
+	if( AndroidInQuitMenu && ( Text[0]=='[' || Text[0]==' ' )
+	 && AndroidCanvasNearlyEqual( CurY, AndroidQuitLastY, 1.5f ) )
 	{
 		INT GapX=0, GapY=0;
 		StrLen( Font, GapX, GapY, "  " );
-		if( AndroidCanvasNearlyEqual( CurX, appFloor(0.5f*ClipX - 59.0f), 1.5f ) )
-			AndroidIsQuitTitle = 1;
-		else if( AndroidCanvasNearlyEqual( CurX, appFloor(0.5f*ClipX - 59.0f) + 48.0f, 1.5f )
-		      && AndroidCanvasNearlyEqual( CurY, AndroidQuitTitleY, 1.5f )
-		      && CurX < AndroidQuitTitleEndX + GapX )
-			CurX = AndroidQuitTitleEndX + GapX;
+		if( CurX < AndroidQuitLastEndX + GapX )
+			CurX = AndroidQuitLastEndX + GapX;
 	}
 #endif
 	if( Style!=STY_None )
@@ -751,10 +775,10 @@ void UCanvas::execDrawText( FFrame& Stack, BYTE*& Result )
 	WrappedStrLen( Font, XL, YL, ClipX, AndroidDrawTextV125 );
 	CurX += XL;
 #ifdef PLATFORM_ANDROID // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
-	if( AndroidIsQuitTitle )
+	if( AndroidInQuitMenu )
 	{
-		AndroidQuitTitleEndX = CurX;
-		AndroidQuitTitleY = CurY;
+		AndroidQuitLastEndX = CurX;
+		AndroidQuitLastY = CurY;
 	}
 #endif
 	CurYL = Max(CurYL,(FLOAT)YL);
