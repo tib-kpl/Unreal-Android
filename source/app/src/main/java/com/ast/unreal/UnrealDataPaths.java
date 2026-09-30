@@ -455,7 +455,7 @@ final class UnrealDataPaths {
             "Abyss", "Bluff", "Ceremony", "Chizra", "Crashsite", "Crashsite1", "Crashsite2", "DCrater", "DKNightOp", "DM-Cybrosis", "DM-Letting", "DM-Loxi", "DM-Mojo", "DM-Shrapnel", "DM-Twilight", "Dark", "DasaCellars", "DasaPass", "Dig", "DmAriza", "DmAthena", "DmBayC", "DmBeyondTheSun", "DmCreek", "DmCurse", "DmDaybreak", "DmDeathFan", "DmDeck16", "DmDespair", "DmEclipse", "DmElsinore", "DmExar", "DmFith", "DmHazard", "DmHealPod", "DmKrazy", "DmLocke", "DmMorbfanza", "DmMorbias", "DmRadikus", "DmRetrospective", "DmRiot", "DmScruular", "DmSplash", "DmStomp", "DmSunSpeak", "DmTerra", "DmTundra", "DmVilla", "DmVilla2", "Dug", "DuskFalls", "Eldora", "End", "EndGame", "ExtremeBeg", "ExtremeCore", "ExtremeDGen", "ExtremeDark", "ExtremeDarkGen", "ExtremeEnd", "ExtremeGen", "ExtremeLab", "Foundry", "Gateway", "Glacena", "Glathriel1", "Glathriel2", "Inter1", "Inter10", "Inter11", "Inter12", "Inter13", "Inter14", "Inter2", "Inter3", "Inter4", "Inter5", "Inter6", "Inter7", "Inter8", "Inter9", "InterCrashsite", "InterIntro", "Intro1", "Intro2", "IsvDeck1", "IsvKran32", "IsvKran4", "Nagomi", "NagomiSun", "NaliBoat", "NaliC", "NaliLord", "Nalic2", "Nevec", "Noork", "Nyleve", "Passage", "QueenEnd", "Ruins", "SkyBase", "SkyCaves", "SkyTown", "SpireLand", "SpireVillage", "TerraLift", "Terraniux", "TheSunspire", "Toxic", "Trench", "UDSDemo", "Velora", "VeloraEnd", "Vortex2", "harobed"
     };
     // Bump to refresh previously downloaded OldUnreal files.
-    private static final String FRENCH_LOCALIZATION_MARKER = ".unreal-frt-oldunreal-v2";
+    private static final String FRENCH_LOCALIZATION_MARKER = ".unreal-frt-oldunreal-v3";
 
     static boolean needsFrenchLocalizationUpdate(File systemDir) {
         return !new File(systemDir, FRENCH_LOCALIZATION_MARKER).isFile();
@@ -509,13 +509,29 @@ final class UnrealDataPaths {
                 }
                 String text = new String(bytes.toByteArray(), "UTF-8");
                 if (text.startsWith("\uFEFF")) text = text.substring(1);
+                // The v200 fonts have no ligatures, curly quotes or guillemets.
+                text = text.replace("\u0153", "oe").replace("\u0152", "OE")
+                        .replace("\u2019", "'").replace("\u2018", "'")
+                        .replace("\u201C", "\"").replace("\u201D", "\"")
+                        .replace("\u00AB", "\"").replace("\u00BB", "\"")
+                        .replace("\u2026", "...").replace("\u00A0", " ");
                 // The engine only strips quotes when they end the line, so drop
                 // trailing blanks after the closing quote.
                 StringBuilder clean = new StringBuilder(text.length());
+                String section = "";
                 for (String line : text.split("\r?\n", -1)) {
                     int end = line.length();
                     while (end > 0 && (line.charAt(end - 1) == ' ' || line.charAt(end - 1) == '\t')) end--;
-                    clean.append(line, 0, end).append("\r\n");
+                    line = line.substring(0, end);
+                    if (line.startsWith("[")) section = line;
+                    // UnrealQuitMenu draws Yes/No 48px after MenuTitle; "Quitter?" is
+                    // 59px wide in MedFont, so shift the choice by four 5px spaces.
+                    if (section.equalsIgnoreCase("[UnrealQuitMenu]")
+                            && (line.startsWith("YesSelString=\"") || line.startsWith("NoSelString=\""))) {
+                        int quote = line.indexOf('"');
+                        line = line.substring(0, quote + 1) + "    " + line.substring(quote + 1);
+                    }
+                    clean.append(line).append("\r\n");
                 }
                 File tmp = new File(systemDir, name + ".download");
                 FileOutputStream out = new FileOutputStream(tmp);
