@@ -94,7 +94,8 @@ public class MainActivity extends Activity {
             return;
         }
         final File systemDir = new File(root, "System");
-        if (!UnrealDataPaths.wantsFrench(this) || UnrealDataPaths.hasFrenchLocalization(systemDir)) {
+        if (!UnrealDataPaths.wantsFrench(this)
+                || (UnrealDataPaths.hasFrenchLocalization(systemDir) && !UnrealDataPaths.needsFrenchLocalizationUpdate(systemDir))) {
             launchGame(root);
             return;
         }
@@ -102,7 +103,7 @@ public class MainActivity extends Activity {
                 "Téléchargement de la traduction française",
                 "Récupération des fichiers de langue (OldUnreal)…\nDownloading French language files…");
         new Thread(() -> {
-            boolean ok = UnrealDataPaths.downloadFrenchLocalization(systemDir);
+            boolean ok = UnrealDataPaths.downloadFrenchLocalization(root);
             runOnUiThread(() -> {
                 if (!ok) {
                     android.widget.Toast.makeText(this,

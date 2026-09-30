@@ -66,6 +66,47 @@ static UBOOL AndroidCanvasActiveMenuIs( UCanvas* Canvas, const char* ClassName )
 }
 #endif
 
+#ifdef PLATFORM_ANDROID // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
+static UBOOL AndroidCanvasIsInt()
+{
+	return appStricmp( GetLanguage(), "int" )==0;
+}
+
+// Windows-1252 byte -> closest ASCII letter.
+static BYTE AndroidCanvasFoldAccent( BYTE C )
+{
+	static const char Latin1[] =
+		"AAAAAAACEEEEIIII" // C0-CF
+		"DNOOOOOxOUUUUYTs" // D0-DF
+		"aaaaaaaceeeeiiii" // E0-EF
+		"dnooooo/ouuuuyty";// F0-FF
+	if( C>=0xC0 )
+		return (BYTE)Latin1[C-0xC0];
+	switch( C )
+	{
+		case 0x91: case 0x92: case 0xB4: return '\'';
+		case 0x93: case 0x94: case 0xAB: case 0xBB: return '"';
+		case 0x96: case 0x97: return '-';
+		case 0x8C: return 'O';
+		case 0x9C: return 'o';
+		case 0xA0: return ' ';
+		default: return '?';
+	}
+}
+
+// The stock big/large UI fonts have no valid accented glyphs (Epic's later
+// builds switch to MedFont for non-INT languages).  Fold accents to ASCII for
+// those fonts and for any glyph the font does not provide.
+static BYTE AndroidCanvasGlyph( UCanvas* Canvas, UFont* Font, BYTE C )
+{
+	if( C<0x80 )
+		return C;
+	if( Font==Canvas->BigFont || Font==Canvas->LargeFont || C>=Font->Characters.Num() || Font->Characters(C).USize<=0 )
+		return AndroidCanvasFoldAccent( C );
+	return C;
+}
+#endif
+
 
 #ifdef PLATFORM_ANDROID // UNREAL_ANDROID_CANVAS_UI_SCALE_HELPER
 // OUYA 1.3.0 used a 1:1 canvas scale. The unified build must detect it at
@@ -284,12 +325,16 @@ void UCanvas::StrLen
 	guard(UCanvas::StrLen);
 
 	XL = YL = 0;
-	for( const char* c=Text+iStart; *c && NumChars>0; c++,NumChars-- )
+	for( const BYTE* c=(const BYTE*)Text+iStart; *c && NumChars>0; c++,NumChars-- )
 	{
-		if( *c < Font->Characters.Num() )
+		BYTE Ch = *c;
+#ifdef PLATFORM_ANDROID // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
+		Ch = AndroidCanvasGlyph( this, Font, Ch );
+#endif
+		if( Ch < Font->Characters.Num() )
 		{
-			XL += Font->Characters(*c).USize + SpaceX;
-			YL = ::Max(YL,Font->Characters(*c).VSize);
+			XL += Font->Characters(Ch).USize + SpaceX;
+			YL = ::Max(YL,Font->Characters(Ch).VSize);
 		}
 	}
 	YL += SpaceY;
@@ -427,7 +472,13 @@ void VARARGS UCanvas::Printf
 		//const char* C=LocalizeGeneral("Copyright","Core");
 		//while( *C ) 
 		//	debugf("%i",*C);
-		FFontCharacter& Char = Font->Characters( *c );
+		BYTE Ch = *c;
+#ifdef PLATFORM_ANDROID // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
+		Ch = AndroidCanvasGlyph( this, Font, Ch );
+#endif
+		if( Ch >= Font->Characters.Num() )
+			continue;
+		FFontCharacter& Char = Font->Characters( Ch );
 		DrawChar( this, Info, OrgX+X, OrgY+Y, Char.USize, Char.VSize, Char.StartU, Char.StartV, Char.USize, Char.VSize, DrawColor );
 		X += Char.USize + SpaceX;
 	}
@@ -567,9 +618,10 @@ void UCanvas::execDrawText( FFrame& Stack, BYTE*& Result )
 	// The legacy row now controls the Java touch overlay, while native controller
 	// input remains active.
 	if( AndroidCanvasActiveMenuIs( this, "UnrealOptionsMenu" )
-	 && ( !appStricmp( Text, "Joystick enabled" ) || !appStricmp( Text, "Joypad enabled" ) ) )
+	 && ( !appStricmp( Text, "Joystick enabled" ) || !appStricmp( Text, "Joypad enabled" )
+	   || !appStricmp( Text, "Activer Joystick" ) ) ) // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
 	{
-		AndroidDrawTextV125 = "Touch Controls";
+		AndroidDrawTextV125 = AndroidCanvasIsInt() ? "Touch Controls" : "Commandes tactiles";
 	}
 #endif
 #ifdef PLATFORM_ANDROID // UE1_ANDROID_AUDIOVIDEO_MENU_DRAW_FIX
@@ -647,7 +699,8 @@ void UCanvas::execDrawText( FFrame& Stack, BYTE*& Result )
 		const FLOAT JoinValueX = JoinStartX + 100.0f;
 		const FLOAT JoinTolerance = Max( 3.0f, JoinSpacing * 0.25f );
 
-		if( ( !appStricmp( Text, "Choose From Favorites" ) || !appStricmp( Text, "Go to the Epic Unreal server list" ) )
+		if( ( !appStricmp( Text, "Choose From Favorites" ) || !appStricmp( Text, "Go to the Epic Unreal server list" )
+		   || !appStricmp( Text, "Choisir Parmi les Favoris" ) || !appStricmp( Text, "Lancer Liste Serveurs Unreal" ) ) // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
 		&&  AndroidCanvasNearlyEqual( CurX, JoinStartX, 3.0f ) )
 		{
 			return;
@@ -665,11 +718,45 @@ void UCanvas::execDrawText( FFrame& Stack, BYTE*& Result )
 		}
 	}
 #endif
+#ifdef PLATFORM_ANDROID // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
+	// Stock scripts place some texts at offsets sized for the English strings.
+	// IntroNullHud: ESCMessage at ClipX/2-66, row 4 -> center the translation.
+	if( !AndroidCanvasIsInt() && Font==MedFont
+	 && AndroidCanvasNearlyEqual( CurX, 0.5f*ClipX - 66.0f, 1.5f )
+	 && AndroidCanvasNearlyEqual( CurY, 4.0f, 1.5f ) )
+	{
+		INT TextXL=0, TextYL=0;
+		StrLen( Font, TextXL, TextYL, AndroidDrawTextV125 );
+		CurX = Max( 0.0f, 0.5f*(ClipX - TextXL) );
+	}
+	// UnrealQuitMenu: YesSelString/NoSelString 48px after MenuTitle ("Quit?")
+	// at ClipX/2-59 -> push them past a longer translated title.
+	static FLOAT AndroidQuitTitleEndX = -1.0f, AndroidQuitTitleY = -1.0f;
+	UBOOL AndroidIsQuitTitle = 0;
+	if( AndroidCanvasActiveMenuIs( this, "UnrealQuitMenu" ) )
+	{
+		INT GapX=0, GapY=0;
+		StrLen( Font, GapX, GapY, "  " );
+		if( AndroidCanvasNearlyEqual( CurX, appFloor(0.5f*ClipX - 59.0f), 1.5f ) )
+			AndroidIsQuitTitle = 1;
+		else if( AndroidCanvasNearlyEqual( CurX, appFloor(0.5f*ClipX - 59.0f) + 48.0f, 1.5f )
+		      && AndroidCanvasNearlyEqual( CurY, AndroidQuitTitleY, 1.5f )
+		      && CurX < AndroidQuitTitleEndX + GapX )
+			CurX = AndroidQuitTitleEndX + GapX;
+	}
+#endif
 	if( Style!=STY_None )
 		WrappedPrintf( Font, bCenter, "%s", AndroidDrawTextV125 );
 	INT XL, YL;
 	WrappedStrLen( Font, XL, YL, ClipX, AndroidDrawTextV125 );
 	CurX += XL;
+#ifdef PLATFORM_ANDROID // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
+	if( AndroidIsQuitTitle )
+	{
+		AndroidQuitTitleEndX = CurX;
+		AndroidQuitTitleY = CurY;
+	}
+#endif
 	CurYL = Max(CurYL,(FLOAT)YL);
 	if( CR )
 	{

@@ -443,23 +443,52 @@ final class UnrealDataPaths {
     }
 
     // OldUnreal's community French localization for Unreal 227.  The files are
-    // fetched on the device instead of being bundled.  Only packages used by
-    // the v200 engine are needed; map texts are per-actor and not loaded.
+    // fetched on the device instead of being bundled: the packages used by the
+    // v200 engine plus the texts of the maps present in Maps/.
     private static final String FRENCH_LOCALIZATION_URL =
             "https://raw.githubusercontent.com/OldUnreal/Unreal-Localization/master/frt/";
     private static final String[] FRENCH_LOCALIZATION_FILES = {
-            "UnrealShare.frt", "UnrealI.frt", "Engine.frt", "Core.frt", "IpDrv.frt"
+            "UnrealShare", "UnrealI", "Engine", "Core", "IpDrv"
     };
+    // Exact (case-sensitive) names of the map files in that repository.
+    private static final String[] FRENCH_LOCALIZATION_MAPS = {
+            "Abyss", "Bluff", "Ceremony", "Chizra", "Crashsite", "Crashsite1", "Crashsite2", "DCrater", "DKNightOp", "DM-Cybrosis", "DM-Letting", "DM-Loxi", "DM-Mojo", "DM-Shrapnel", "DM-Twilight", "Dark", "DasaCellars", "DasaPass", "Dig", "DmAriza", "DmAthena", "DmBayC", "DmBeyondTheSun", "DmCreek", "DmCurse", "DmDaybreak", "DmDeathFan", "DmDeck16", "DmDespair", "DmEclipse", "DmElsinore", "DmExar", "DmFith", "DmHazard", "DmHealPod", "DmKrazy", "DmLocke", "DmMorbfanza", "DmMorbias", "DmRadikus", "DmRetrospective", "DmRiot", "DmScruular", "DmSplash", "DmStomp", "DmSunSpeak", "DmTerra", "DmTundra", "DmVilla", "DmVilla2", "Dug", "DuskFalls", "Eldora", "End", "EndGame", "ExtremeBeg", "ExtremeCore", "ExtremeDGen", "ExtremeDark", "ExtremeDarkGen", "ExtremeEnd", "ExtremeGen", "ExtremeLab", "Foundry", "Gateway", "Glacena", "Glathriel1", "Glathriel2", "Inter1", "Inter10", "Inter11", "Inter12", "Inter13", "Inter14", "Inter2", "Inter3", "Inter4", "Inter5", "Inter6", "Inter7", "Inter8", "Inter9", "InterCrashsite", "InterIntro", "Intro1", "Intro2", "IsvDeck1", "IsvKran32", "IsvKran4", "Nagomi", "NagomiSun", "NaliBoat", "NaliC", "NaliLord", "Nalic2", "Nevec", "Noork", "Nyleve", "Passage", "QueenEnd", "Ruins", "SkyBase", "SkyCaves", "SkyTown", "SpireLand", "SpireVillage", "TerraLift", "Terraniux", "TheSunspire", "Toxic", "Trench", "UDSDemo", "Velora", "VeloraEnd", "Vortex2", "harobed"
+    };
+    // Bump to refresh previously downloaded OldUnreal files.
+    private static final String FRENCH_LOCALIZATION_MARKER = ".unreal-frt-oldunreal-v2";
+
+    static boolean needsFrenchLocalizationUpdate(File systemDir) {
+        return !new File(systemDir, FRENCH_LOCALIZATION_MARKER).isFile();
+    }
+
+    // Files fetched from OldUnreal keep their "; EN:" reference comments; a
+    // retail French install has none, so it is never overwritten.
+    private static boolean isOldUnrealLocalization(File file) {
+        try {
+            return readLatin1(file).contains("; EN: ");
+        } catch (IOException ex) {
+            return false;
+        }
+    }
 
     /**
      * Downloads the French localization into System/, converting the UTF-8
      * files to the Windows-1252 bytes the 8-bit v200 engine reads.  Existing
      * files (e.g. from a retail French install) are never overwritten.
      */
-    static boolean downloadFrenchLocalization(File systemDir) {
+    static boolean downloadFrenchLocalization(File root) {
+        File systemDir = new File(root, "System");
+        File mapsDir = new File(root, "Maps");
+        ArrayList<String> names = new ArrayList<>();
+        for (String name : FRENCH_LOCALIZATION_FILES) names.add(name + ".frt");
+        for (String map : FRENCH_LOCALIZATION_MAPS) {
+            if (findCaseInsensitive(mapsDir, map + ".unr") != null) names.add(map + ".frt");
+        }
         int written = 0;
-        for (String name : FRENCH_LOCALIZATION_FILES) {
-            if (findCaseInsensitive(systemDir, name) != null) continue;
+        boolean networkError = false;
+        for (String name : names) {
+            File existing = findCaseInsensitive(systemDir, name);
+            if (existing != null && !isOldUnrealLocalization(existing)) continue;
             java.net.HttpURLConnection conn = null;
             try {
                 conn = (java.net.HttpURLConnection) new java.net.URL(FRENCH_LOCALIZATION_URL + name).openConnection();
@@ -480,21 +509,42 @@ final class UnrealDataPaths {
                 }
                 String text = new String(bytes.toByteArray(), "UTF-8");
                 if (text.startsWith("\uFEFF")) text = text.substring(1);
+                // The engine only strips quotes when they end the line, so drop
+                // trailing blanks after the closing quote.
+                StringBuilder clean = new StringBuilder(text.length());
+                for (String line : text.split("\r?\n", -1)) {
+                    int end = line.length();
+                    while (end > 0 && (line.charAt(end - 1) == ' ' || line.charAt(end - 1) == '\t')) end--;
+                    clean.append(line, 0, end).append("\r\n");
+                }
                 File tmp = new File(systemDir, name + ".download");
                 FileOutputStream out = new FileOutputStream(tmp);
                 try {
-                    out.write(text.getBytes("windows-1252"));
+                    out.write(clean.toString().getBytes("windows-1252"));
                 } finally {
                     try { out.close(); } catch (Throwable ignored) {}
                 }
+                if (existing != null && !existing.delete()) Log.w(TAG_CONFIG, "Could not replace " + existing);
                 if (tmp.renameTo(new File(systemDir, name))) {
                     written++;
                     Log.i(TAG_CONFIG, "Downloaded French localization " + name);
                 }
+            } catch (IOException ex) {
+                // No connection: stop instead of waiting for every file to time out.
+                Log.w(TAG_CONFIG, "Could not download French localization " + name + ": " + ex);
+                networkError = true;
+                break;
             } catch (Throwable t) {
                 Log.w(TAG_CONFIG, "Could not download French localization " + name + ": " + t);
             } finally {
                 if (conn != null) conn.disconnect();
+            }
+        }
+        if (!networkError) {
+            try {
+                writeUtf8(new File(systemDir, FRENCH_LOCALIZATION_MARKER), "OldUnreal/Unreal-Localization frt\n");
+            } catch (IOException ex) {
+                Log.w(TAG_CONFIG, "Could not write French localization marker: " + ex);
             }
         }
         Log.i(TAG_CONFIG, "French localization files downloaded: " + written);

@@ -839,6 +839,33 @@ static UBOOL UE1AndroidLocalizationFile( const char* Package, char* Out, INT Out
 	return Found;
 }
 
+static void UE1AndroidImportLocalized( UObject* Object, UClass* Class, const char* Section, char Files[][256], INT NumFiles )
+{
+	for( TFieldIterator<UProperty> It(Class); It; ++It )
+	{
+		if( !(It->PropertyFlags & CPF_Localized) )
+			continue;
+		for( INT i=0; i<It->ArrayDim; i++ )
+		{
+			char TempKey[256], Value[1024]="";
+			const char* Key = It->GetName();
+			if( It->ArrayDim!=1 )
+			{
+				appSprintf( TempKey, "%s[%i]", It->GetName(), i );
+				Key = TempKey;
+			}
+			for( INT f=0; f<NumFiles; f++ )
+			{
+				if( GetConfigString( Section, Key, Value, ARRAY_COUNT(Value), Files[f] ) )
+				{
+					It->ImportText( Value, (BYTE*)Object + It->Offset + i*It->GetElementSize(), 1 );
+					break;
+				}
+			}
+		}
+	}
+}
+
 static void UE1AndroidLoadLocalized( UObject* Object, UClass* Class )
 {
 	if( GIsEditor || appStricmp( GetLanguage(), "int" )==0 )
@@ -862,32 +889,32 @@ static void UE1AndroidLoadLocalized( UObject* Object, UClass* Class )
 		NumFiles++;
 	if( appStricmp( Package, "UnrealI" )==0 && UE1AndroidLocalizationFile( "UnrealShare", Files[NumFiles], ARRAY_COUNT(Files[0]) ) )
 		NumFiles++;
-	if( !NumFiles )
+	if( NumFiles )
+		UE1AndroidImportLocalized( Object, Class, Class->GetName(), Files, NumFiles );
+}
+
+// Map texts (translator messages, hints, level titles) are stored per actor:
+// section = object name, file = <map package>.<lang>.  Called by the linker
+// right after an object has been serialized.
+CORE_API void UE1AndroidLoadInstanceLocalized( UObject* Object )
+{
+	if( !Object || GIsEditor || appStricmp( GetLanguage(), "int" )==0 )
+		return;
+	UClass* Class = Object->GetClass();
+	if( !Class || !(Class->ClassFlags & CLASS_Localized) || Object->IsA(UStruct::StaticClass) )
 		return;
 
-	for( TFieldIterator<UProperty> It(Class); It; ++It )
-	{
-		if( !(It->PropertyFlags & CPF_Localized) )
-			continue;
-		for( INT i=0; i<It->ArrayDim; i++ )
-		{
-			char TempKey[256], Value[1024]="";
-			const char* Key = It->GetName();
-			if( It->ArrayDim!=1 )
-			{
-				appSprintf( TempKey, "%s[%i]", It->GetName(), i );
-				Key = TempKey;
-			}
-			for( INT f=0; f<NumFiles; f++ )
-			{
-				if( GetConfigString( Class->GetName(), Key, Value, ARRAY_COUNT(Value), Files[f] ) )
-				{
-					It->ImportText( Value, (BYTE*)Object + It->Offset + i*It->GetElementSize(), 1 );
-					break;
-				}
-			}
-		}
-	}
+	char Package[64];
+	appStrncpy( Package, Object->GetPathName(), ARRAY_COUNT(Package) );
+	Package[ARRAY_COUNT(Package)-1] = 0;
+	char* Dot = appStrchr( Package, '.' );
+	if( !Dot )
+		return;
+	*Dot = 0;
+
+	char Files[2][256];
+	if( UE1AndroidLocalizationFile( Package, Files[0], ARRAY_COUNT(Files[0]) ) )
+		UE1AndroidImportLocalized( Object, Class, Object->GetName(), Files, 1 );
 }
 #endif
 

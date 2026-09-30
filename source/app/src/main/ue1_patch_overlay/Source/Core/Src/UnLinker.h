@@ -417,6 +417,11 @@ class CORE_API ULinker : public UObject
 //
 // A file loader.
 //
+#if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+// UNREAL_ANDROID_FRENCH_LANGUAGE_V221: per-object (map) localization, UnObj.cpp.
+CORE_API void UE1AndroidLoadInstanceLocalized( UObject* Object );
+#endif
+
 class ULinkerLoad : public ULinker, public FArchiveFileLoad
 {
 	DECLARE_CLASS_WITHOUT_CONSTRUCT(ULinkerLoad,ULinker,CLASS_Transient)
@@ -954,6 +959,9 @@ private:
 
 		// Load the object.
 		Object->Serialize( *this );
+#if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+		UE1AndroidLoadInstanceLocalized( Object );
+#endif
 		//debugf(NAME_Log,"    %s: %i", Object->GetFullName(), Export.Size );
 
 		// Make sure we serialized the right amount of stuff.
