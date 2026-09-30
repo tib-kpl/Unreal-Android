@@ -807,11 +807,100 @@ static UBOOL UE1AndroidClassHasHudConfigKeys( UClass* Class )
 // Load configuration.
 //warning: Must be safe on class-default metaobjects.
 //
+#if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+// UNREAL_ANDROID_FRENCH_LANGUAGE_V221:
+// v200 compiles localized text into the packages and never reads it back from
+// language files.  For a non-INT language, look the text up in
+// <Package>.<lang> using the class name as section, like later UE1 builds.
+// Menus live in UnrealI in v200 but in UnrealShare in later localizations, so
+// UnrealI classes also try UnrealShare.<lang>.  Anything missing keeps the
+// compiled-in English default.
+static UBOOL UE1AndroidLocalizationFile( const char* Package, char* Out, INT OutSize )
+{
+	static char Checked[64][256];
+	static UBOOL Exists[64];
+	static INT NumChecked = 0;
+
+	appSprintf( Out, "%s%s.%s", appBaseDir(), Package, GetLanguage() );
+	Out[OutSize-1] = 0;
+	for( INT i=0; i<NumChecked; i++ )
+		if( appStricmp( Checked[i], Out )==0 )
+			return Exists[i];
+
+	UBOOL Found = appFSize( Out ) > 0;
+	if( NumChecked < ARRAY_COUNT(Checked) )
+	{
+		appStrncpy( Checked[NumChecked], Out, ARRAY_COUNT(Checked[0]) );
+		Checked[NumChecked][ARRAY_COUNT(Checked[0])-1] = 0;
+		Exists[NumChecked++] = Found;
+	}
+	if( Found )
+		debugf( NAME_Localization, "Android localization file: %s", Out );
+	return Found;
+}
+
+static void UE1AndroidLoadLocalized( UObject* Object, UClass* Class )
+{
+	if( GIsEditor || appStricmp( GetLanguage(), "int" )==0 )
+		return;
+	if( !(Class->ClassFlags & CLASS_Localized) )
+		return;
+	if( Class->GetSuperClass() )
+		UE1AndroidLoadLocalized( Object, Class->GetSuperClass() );
+
+	// Package is the outermost name of "Package.Class".
+	char Package[64];
+	appStrncpy( Package, Class->GetPathName(), ARRAY_COUNT(Package) );
+	Package[ARRAY_COUNT(Package)-1] = 0;
+	char* Dot = appStrchr( Package, '.' );
+	if( Dot )
+		*Dot = 0;
+
+	char Files[2][256];
+	INT NumFiles = 0;
+	if( UE1AndroidLocalizationFile( Package, Files[NumFiles], ARRAY_COUNT(Files[0]) ) )
+		NumFiles++;
+	if( appStricmp( Package, "UnrealI" )==0 && UE1AndroidLocalizationFile( "UnrealShare", Files[NumFiles], ARRAY_COUNT(Files[0]) ) )
+		NumFiles++;
+	if( !NumFiles )
+		return;
+
+	for( TFieldIterator<UProperty> It(Class); It; ++It )
+	{
+		if( !(It->PropertyFlags & CPF_Localized) )
+			continue;
+		for( INT i=0; i<It->ArrayDim; i++ )
+		{
+			char TempKey[256], Value[1024]="";
+			const char* Key = It->GetName();
+			if( It->ArrayDim!=1 )
+			{
+				appSprintf( TempKey, "%s[%i]", It->GetName(), i );
+				Key = TempKey;
+			}
+			for( INT f=0; f<NumFiles; f++ )
+			{
+				if( GetConfigString( Class->GetName(), Key, Value, ARRAY_COUNT(Value), Files[f] ) )
+				{
+					It->ImportText( Value, (BYTE*)Object + It->Offset + i*It->GetElementSize(), 1 );
+					break;
+				}
+			}
+		}
+	}
+}
+#endif
+
 void UObject::LoadConfig( FName Type, UClass* Class, const char* Filename )
 {
 	guard(UObject::LoadConfig);
 	if( Type==NAME_Localized )
+	{
+#if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+		UE1AndroidLoadLocalized( this, Class ? Class : GetClass() );
+#endif
 		return;
+	}
 	DWORD ClassFlags = Type==NAME_Config ? CLASS_Config : CLASS_Localized;
 	DWORD Flags      = Type==NAME_Config ? CPF_Config   : CPF_Localized;
 	if( !Class )

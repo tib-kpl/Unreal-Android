@@ -26,6 +26,8 @@ public class MainActivity extends Activity {
     private static final int REQ_LEGACY_STORAGE = 2001;
     private static final int REQ_SELECT_UNREAL_FOLDER = 3001;
     private static final int REQ_SELECT_UNREAL_ZIP = 3002;
+    // UNREAL_ANDROID_FRENCH_LANGUAGE_V221: set by the "Game language" launcher shortcut.
+    static final String EXTRA_CHOOSE_LANGUAGE = "com.ast.unreal.EXTRA_CHOOSE_LANGUAGE";
 
     private File selectedRoot;
     private String lastImportMessage;
@@ -74,11 +76,94 @@ public class MainActivity extends Activity {
 
         if (UnrealDataPaths.hasRequiredData(selectedRoot, true)) {
             android.util.Log.i(UnrealDataPaths.TAG_STARTUP, "data check OK root=" + selectedRoot.getAbsolutePath());
-            launchGame(selectedRoot);
+            startGameWithLanguage(selectedRoot);
             return;
         }
         android.util.Log.w(UnrealDataPaths.TAG_STARTUP, "data check failed root=" + selectedRoot.getAbsolutePath());
         showMissingDataScreen();
+    }
+
+    // UNREAL_ANDROID_FRENCH_LANGUAGE_V221:
+    // Ask for the game language on first start (or from the launcher shortcut),
+    // fetch the French localization when needed, then start the engine.
+    private void startGameWithLanguage(File root) {
+        boolean askLanguage = getIntent() != null && getIntent().getBooleanExtra(EXTRA_CHOOSE_LANGUAGE, false);
+        if (askLanguage || !UnrealDataPaths.hasGameLanguagePreference(this)) {
+            if (getIntent() != null) getIntent().removeExtra(EXTRA_CHOOSE_LANGUAGE);
+            showLanguageChooser(root);
+            return;
+        }
+        final File systemDir = new File(root, "System");
+        if (!UnrealDataPaths.wantsFrench(this) || UnrealDataPaths.hasFrenchLocalization(systemDir)) {
+            launchGame(root);
+            return;
+        }
+        showBusyScreen(
+                "Téléchargement de la traduction française",
+                "Récupération des fichiers de langue (OldUnreal)…\nDownloading French language files…");
+        new Thread(() -> {
+            boolean ok = UnrealDataPaths.downloadFrenchLocalization(systemDir);
+            runOnUiThread(() -> {
+                if (!ok) {
+                    android.widget.Toast.makeText(this,
+                            "Traduction française indisponible (pas de connexion ?). Le jeu démarre en anglais.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+                launchGame(root);
+            });
+        }, "UE1FrenchDownload").start();
+    }
+
+    private void showLanguageChooser(File root) {
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setGravity(Gravity.CENTER);
+        body.setPadding(48, 36, 48, 36);
+
+        TextView title = new TextView(this);
+        title.setText("Langue du jeu / Game language");
+        title.setTextSize(24);
+        title.setGravity(Gravity.CENTER);
+        body.addView(title);
+
+        TextView msg = new TextView(this);
+        msg.setText("Modifiable plus tard : appui long sur l'icône > Langue du jeu.\n" +
+                "Can be changed later: long-press the app icon > Game language.");
+        msg.setTextSize(16);
+        msg.setGravity(Gravity.CENTER);
+        msg.setPadding(0, 24, 0, 24);
+        body.addView(msg);
+
+        String current = UnrealDataPaths.hasGameLanguagePreference(this)
+                ? UnrealDataPaths.gameLanguagePreference(this) : UnrealDataPaths.LANGUAGE_AUTO;
+        Button focus = null;
+        String[][] choices = {
+                { UnrealDataPaths.LANGUAGE_AUTO, "Automatique (langue d'Android) / Automatic" },
+                { UnrealDataPaths.LANGUAGE_FRENCH, "Français" },
+                { UnrealDataPaths.LANGUAGE_ENGLISH, "English" },
+        };
+        for (String[] choice : choices) {
+            final String value = choice[0];
+            Button button = new Button(this);
+            button.setText(choice[1]);
+            button.setAllCaps(false);
+            button.setOnClickListener(v -> {
+                UnrealDataPaths.setGameLanguagePreference(this, value);
+                startGameWithLanguage(root);
+            });
+            body.addView(button);
+            if (value.equals(current)) focus = button;
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(body);
+        setContentView(scroll);
+        hideSystemUi();
+        // Gamepad-only devices (AYN Odin/Thor, TV) need an initial focus.
+        if (focus != null) {
+            final Button initial = focus;
+            initial.post(initial::requestFocus);
+        }
     }
 
     private void launchGame(File root) {
@@ -185,7 +270,7 @@ public class MainActivity extends Activity {
             UnrealDataPaths.installDefaultConfigsIfNeeded(this, selectedRoot);
             UnrealDataPaths.normalizeConfigForDetectedData(selectedRoot);
             if (UnrealDataPaths.hasRequiredData(selectedRoot, true)) {
-                launchGame(selectedRoot);
+                startGameWithLanguage(selectedRoot);
             } else {
                 lastImportMessage = t("Noch immer kein gültiger Unreal-Datenordner gefunden.", "Still no valid Unreal data folder found.");
                 showMissingDataScreen();
@@ -340,7 +425,7 @@ public class MainActivity extends Activity {
             UnrealDataPaths.normalizeConfigForDetectedData(selectedRoot);
             if (UnrealDataPaths.hasRequiredData(selectedRoot, true)) {
                 android.util.Log.i(UnrealDataPaths.TAG_IMPORT, "import OK root=" + selectedRoot.getAbsolutePath());
-                launchGame(selectedRoot);
+                startGameWithLanguage(selectedRoot);
                 return;
             }
             lastImportMessage = t("Import abgeschlossen, aber die Pflichtdateien wurden danach nicht vollständig gefunden.",

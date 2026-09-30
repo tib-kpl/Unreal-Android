@@ -390,16 +390,11 @@ final class UnrealDataPaths {
 
     private static void ensureGameLanguage(Context context, File systemDir) {
         // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
-        // Follow the app language (Android 13+ per-app setting, otherwise the
-        // device language).  French retail data ships .frt localizations; use
-        // them only when the central game package is localized, otherwise stay
-        // on INT.  Missing keys fall back to INT in Localize(), and appFopen()
-        // already resolves lower-case retail file names on Android.
-        Locale locale = currentLocale(context);
-        boolean wantFrench = locale != null && "fr".equalsIgnoreCase(locale.getLanguage());
-        boolean hasFrench = findCaseInsensitive(systemDir, "UnrealShare.frt") != null
-                || findCaseInsensitive(systemDir, "UnrealI.frt") != null;
-        String language = wantFrench && hasFrench ? "frt" : "int";
+        // Use the in-app choice, or in "auto" mode the app language (Android
+        // 13+ per-app setting, otherwise the device language).  French needs
+        // .frt files (retail or downloaded by MainActivity); missing keys keep
+        // the English text, and appFopen() resolves lower-case file names.
+        String language = wantsFrench(context) && hasFrenchLocalization(systemDir) ? "frt" : "int";
         for (String name : new String[] { "Unreal.ini", "Default.ini" }) {
             File file = new File(systemDir, name);
             if (!file.isFile()) continue;
@@ -413,6 +408,97 @@ final class UnrealDataPaths {
                 Log.w(TAG_CONFIG, "Could not set language in " + file.getAbsolutePath() + ": " + ex);
             }
         }
+    }
+
+    // UNREAL_ANDROID_FRENCH_LANGUAGE_V221: in-app game language choice.
+    static final String LANGUAGE_AUTO = "auto";
+    static final String LANGUAGE_FRENCH = "fr";
+    static final String LANGUAGE_ENGLISH = "en";
+    private static final String PREFS_LANGUAGE = "unreal_language_v221";
+    private static final String KEY_GAME_LANGUAGE = "game_language";
+
+    static boolean hasGameLanguagePreference(Context context) {
+        return context.getSharedPreferences(PREFS_LANGUAGE, Context.MODE_PRIVATE).contains(KEY_GAME_LANGUAGE);
+    }
+
+    static String gameLanguagePreference(Context context) {
+        return context.getSharedPreferences(PREFS_LANGUAGE, Context.MODE_PRIVATE).getString(KEY_GAME_LANGUAGE, LANGUAGE_AUTO);
+    }
+
+    static void setGameLanguagePreference(Context context, String value) {
+        context.getSharedPreferences(PREFS_LANGUAGE, Context.MODE_PRIVATE).edit().putString(KEY_GAME_LANGUAGE, value).commit();
+    }
+
+    static boolean wantsFrench(Context context) {
+        String pref = gameLanguagePreference(context);
+        if (LANGUAGE_FRENCH.equals(pref)) return true;
+        if (LANGUAGE_ENGLISH.equals(pref)) return false;
+        Locale locale = currentLocale(context);
+        return locale != null && "fr".equalsIgnoreCase(locale.getLanguage());
+    }
+
+    static boolean hasFrenchLocalization(File systemDir) {
+        return findCaseInsensitive(systemDir, "UnrealShare.frt") != null
+                || findCaseInsensitive(systemDir, "UnrealI.frt") != null;
+    }
+
+    // OldUnreal's community French localization for Unreal 227.  The files are
+    // fetched on the device instead of being bundled.  Only packages used by
+    // the v200 engine are needed; map texts are per-actor and not loaded.
+    private static final String FRENCH_LOCALIZATION_URL =
+            "https://raw.githubusercontent.com/OldUnreal/Unreal-Localization/master/frt/";
+    private static final String[] FRENCH_LOCALIZATION_FILES = {
+            "UnrealShare.frt", "UnrealI.frt", "Engine.frt", "Core.frt", "IpDrv.frt"
+    };
+
+    /**
+     * Downloads the French localization into System/, converting the UTF-8
+     * files to the Windows-1252 bytes the 8-bit v200 engine reads.  Existing
+     * files (e.g. from a retail French install) are never overwritten.
+     */
+    static boolean downloadFrenchLocalization(File systemDir) {
+        int written = 0;
+        for (String name : FRENCH_LOCALIZATION_FILES) {
+            if (findCaseInsensitive(systemDir, name) != null) continue;
+            java.net.HttpURLConnection conn = null;
+            try {
+                conn = (java.net.HttpURLConnection) new java.net.URL(FRENCH_LOCALIZATION_URL + name).openConnection();
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+                if (conn.getResponseCode() != 200) {
+                    Log.w(TAG_CONFIG, "French localization " + name + ": HTTP " + conn.getResponseCode());
+                    continue;
+                }
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                InputStream in = conn.getInputStream();
+                try {
+                    byte[] buf = new byte[8192];
+                    int read;
+                    while ((read = in.read(buf)) != -1) bytes.write(buf, 0, read);
+                } finally {
+                    try { in.close(); } catch (Throwable ignored) {}
+                }
+                String text = new String(bytes.toByteArray(), "UTF-8");
+                if (text.startsWith("\uFEFF")) text = text.substring(1);
+                File tmp = new File(systemDir, name + ".download");
+                FileOutputStream out = new FileOutputStream(tmp);
+                try {
+                    out.write(text.getBytes("windows-1252"));
+                } finally {
+                    try { out.close(); } catch (Throwable ignored) {}
+                }
+                if (tmp.renameTo(new File(systemDir, name))) {
+                    written++;
+                    Log.i(TAG_CONFIG, "Downloaded French localization " + name);
+                }
+            } catch (Throwable t) {
+                Log.w(TAG_CONFIG, "Could not download French localization " + name + ": " + t);
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }
+        Log.i(TAG_CONFIG, "French localization files downloaded: " + written);
+        return hasFrenchLocalization(systemDir);
     }
 
     private static String readLatin1(File file) throws IOException {

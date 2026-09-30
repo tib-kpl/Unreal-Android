@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Unreal</string>
+    <string name="shortcut_game_language">Game language</string>
 </resources>
