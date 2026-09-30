@@ -371,6 +371,7 @@ final class UnrealDataPaths {
                     "[DefaultPlayer]\nName=Player\nClass=UnrealShare.MaleOne\n\n[Engine.Input]\n");
             ensureConfigFile(systemDir, "Unreal.ini", new String[] { "Default.ini", "Unreal.ini.default" }, "");
             ensureAndroidControllerDirectPatch(systemDir);
+            ensureGameLanguage(context, systemDir); // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
             applyOuyaResolutionDefaultOnceV212(systemDir); // UNREAL_ANDROID_OUYA_960_DEFAULT_V212
             Log.i(TAG_CONFIG, "Config root: " + root.getAbsolutePath());
             Log.i(TAG_CONFIG, "User.ini: " + new File(systemDir, "User.ini").getAbsolutePath());
@@ -379,6 +380,63 @@ final class UnrealDataPaths {
         }
     }
 
+
+    static Locale currentLocale(Context context) {
+        if (Build.VERSION.SDK_INT >= 24) {
+            return Api24Locale.current(context.getResources().getConfiguration());
+        }
+        return context.getResources().getConfiguration().locale;
+    }
+
+    private static void ensureGameLanguage(Context context, File systemDir) {
+        // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
+        // Follow the app language (Android 13+ per-app setting, otherwise the
+        // device language).  French retail data ships .frt localizations; use
+        // them only when the central game package is localized, otherwise stay
+        // on INT.  Missing keys fall back to INT in Localize(), and appFopen()
+        // already resolves lower-case retail file names on Android.
+        Locale locale = currentLocale(context);
+        boolean wantFrench = locale != null && "fr".equalsIgnoreCase(locale.getLanguage());
+        boolean hasFrench = findCaseInsensitive(systemDir, "UnrealShare.frt") != null
+                || findCaseInsensitive(systemDir, "UnrealI.frt") != null;
+        String language = wantFrench && hasFrench ? "frt" : "int";
+        for (String name : new String[] { "Unreal.ini", "Default.ini" }) {
+            File file = new File(systemDir, name);
+            if (!file.isFile()) continue;
+            try {
+                // ISO-8859-1 keeps legacy Windows-1252 bytes in retail INIs intact.
+                String text = readLatin1(file);
+                if (language.equalsIgnoreCase(getIniValue(text, "Engine.Engine", "Language"))) continue;
+                writeLatin1(file, setIniValue(text, "Engine.Engine", "Language", language));
+                Log.i(TAG_CONFIG, "Set " + name + " Language=" + language);
+            } catch (IOException ex) {
+                Log.w(TAG_CONFIG, "Could not set language in " + file.getAbsolutePath() + ": " + ex);
+            }
+        }
+    }
+
+    private static String readLatin1(File file) throws IOException {
+        FileInputStream in = new FileInputStream(file);
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream((int) Math.max(file.length(), 32L));
+            byte[] buf = new byte[8192];
+            int read;
+            while ((read = in.read(buf)) != -1) out.write(buf, 0, read);
+            return new String(out.toByteArray(), "ISO-8859-1");
+        } finally {
+            try { in.close(); } catch (Throwable ignored) {}
+        }
+    }
+
+    private static void writeLatin1(File file, String text) throws IOException {
+        FileOutputStream out = new FileOutputStream(file);
+        try {
+            out.write(text.getBytes("ISO-8859-1"));
+            out.flush();
+        } finally {
+            try { out.close(); } catch (Throwable ignored) {}
+        }
+    }
 
     private static boolean isOuyaDeviceV212() {
         String fingerprint = ((Build.MANUFACTURER != null ? Build.MANUFACTURER : "") + " "
