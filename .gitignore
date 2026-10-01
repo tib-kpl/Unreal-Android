@@ -1,0 +1,5 @@
+# Build outputs (Gradle, CMake/NDK)
+source/.gradle/
+source/build/
+source/app/build/
+source/app/.cxx/

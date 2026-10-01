@@ -232,10 +232,14 @@ fun patchUE1Source(root: File) {
             "if(USE_SDL)\n  target_link_libraries(\${PROJECT_NAME} \${SDL2_LIBRARY} NSDLDrv)\n  target_include_directories(\${PROJECT_NAME} PRIVATE \${SDL2_INCLUDE_DIR})\nelseif(TARGET_IS_WINDOWS)",
             "if(USE_SDL)\n  if(ANDROID AND BUILD_STATIC)\n    # NSDLDrv is already pulled in via LINK_PACKAGES under --whole-archive.\n    # Linking it here as well makes lld see each NSDLClient symbol twice.\n    target_link_libraries(\${PROJECT_NAME} \${SDL2_LIBRARY})\n  else()\n    target_link_libraries(\${PROJECT_NAME} \${SDL2_LIBRARY} NSDLDrv)\n  endif()\n  target_include_directories(\${PROJECT_NAME} PRIVATE \${SDL2_INCLUDE_DIR})\nelseif(TARGET_IS_WINDOWS)"
         )
-        s = s.replace(
-            "target_compile_definitions(\${PROJECT_NAME} PRIVATE UNREAL_EXPORTS UPACKAGE_NAME=\${PROJECT_NAME})",
-            "target_compile_definitions(\${PROJECT_NAME} PRIVATE UNREAL_EXPORTS UPACKAGE_NAME=\${PROJECT_NAME})\n\nif(ANDROID)\n  target_link_libraries(\${PROJECT_NAME} android log GLESv2 EGL)\n  target_compile_definitions(\${PROJECT_NAME} PRIVATE PLATFORM_ANDROID UNREAL_ANDROID)\nendif()"
-        )
+        // The replacement keeps the line it matches, so add the block only
+        // once: run on every build, it appended another copy each time.
+        if (!s.contains("target_link_libraries(\${PROJECT_NAME} android log GLESv2 EGL)")) {
+            s = s.replace(
+                "target_compile_definitions(\${PROJECT_NAME} PRIVATE UNREAL_EXPORTS UPACKAGE_NAME=\${PROJECT_NAME})",
+                "target_compile_definitions(\${PROJECT_NAME} PRIVATE UNREAL_EXPORTS UPACKAGE_NAME=\${PROJECT_NAME})\n\nif(ANDROID)\n  target_link_libraries(\${PROJECT_NAME} android log GLESv2 EGL)\n  target_compile_definitions(\${PROJECT_NAME} PRIVATE PLATFORM_ANDROID UNREAL_ANDROID)\nendif()"
+            )
+        }
         s
     }
 
