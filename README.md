@@ -2,6 +2,18 @@
 
 # Unreal Android
 
+> [!NOTE]
+> **Fork pour la traduction française** de [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android).
+> - Menus, HUD, messages et textes des cartes en français sur Unreal v1.200, avec un choix de la langue au premier lancement (puis appui long sur l'icône > « Langue du jeu »).
+> - La traduction communautaire d'[OldUnreal](https://github.com/OldUnreal/Unreal-Localization) est téléchargée par l'app sur l'appareil ; elle n'est pas incluse dans ce dépôt.
+> - Les lettres accentuées utilisent les glyphes des polices d'origine (ordre CP850) ; les grandes polices, sans accents, affichent la lettre simple.
+> - Les liens de téléchargement plus bas mènent aux versions officielles, sans ces changements.
+>
+> **Fork for the French translation** of [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android).
+> French menus, HUD, messages and map texts on Unreal v1.200, with a language choice at first start (then long-press the icon > "Game language").
+> The app downloads [OldUnreal](https://github.com/OldUnreal/Unreal-Localization)'s community translation on the device; it is not part of this repository.
+> The download links below lead to the upstream builds, without these changes.
+
 <p align="left">
   <a href="README.md">README</a>
   &nbsp;|&nbsp;
