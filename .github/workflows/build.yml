@@ -35,9 +35,12 @@ jobs:
           java-version: "17"
 
       # source/gradlew needs an installed Gradle 8.13 (the repository has no wrapper jar)
+      # (validate-wrappers off: the only wrapper jars are the old ones bundled
+      # with SDL2's sample project, which the build does not use)
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
+          validate-wrappers: false
 
       # the versions source/app/build.gradle.kts asks for; local.properties in
       # the repository names its author's SDK
