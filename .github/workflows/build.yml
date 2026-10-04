@@ -2,10 +2,10 @@ name: Build Android APKs
 
 # Builds the release APKs of both flavors (normal: phones, tablets, TV, OUYA;
 # automotive: Android Automotive OS) on every push. The project signs them with
-# the debug key (source/app/build.gradle.kts); the ANDROID_DEBUG_KEYSTORE_BASE64
-# secret (a debug.keystore, base64) is put where Gradle looks for that key, so
-# each build installs over the one before. Without it, the runner's own debug
-# key signs them.
+# the debug key (source/app/build.gradle.kts); they are signed again with the
+# ANDROID_DEBUG_KEYSTORE_BASE64 secret (a debug.keystore, base64), the key of
+# the APKs already installed, so each build installs over the one before.
+# Without it, the runner's own debug key signs them.
 # A successful build of the default branch is published as a GitHub release.
 on:
   push:
@@ -51,27 +51,37 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "ndk;23.2.8568313" "cmake;3.22.1" > /dev/null
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      - name: Signing key
-        env:
-          KEYSTORE: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$KEYSTORE" ]; then
-            mkdir -p ~/.android
-            printf '%s' "$KEYSTORE" | base64 -d > ~/.android/debug.keystore
-          else
-            echo "::warning::no ANDROID_DEBUG_KEYSTORE_BASE64 secret: signed with the runner's debug key"
-          fi
-
       - name: Build
         run: gradle --console=plain assembleNormalRelease assembleAutomotiveRelease
 
-      - name: Collect
+      # Gradle signs with whatever debug key it finds or makes on the runner,
+      # which is not the one of the APKs already installed: sign again with
+      # the one from the secret (alias androiddebugkey, password android, as
+      # Android Studio's debug.keystore has them)
+      - name: Sign
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
         run: |
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
           version="$(sed -n 's/^val androidVersionName = "\(.*\)"/\1/p' app/build.gradle.kts | head -n 1)"
           mkdir -p ../dist
+          if [ -n "$KEYSTORE" ]; then
+            printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          else
+            echo "::warning::no ANDROID_DEBUG_KEYSTORE_BASE64 secret: signed with the runner's debug key"
+          fi
           for flavor in normal automotive; do
-            cp app/build/outputs/apk/$flavor/release/*.apk "../dist/Unreal-Android-$version-fr-$flavor-release.apk"
+            in="$(ls app/build/outputs/apk/$flavor/release/*.apk | head -n 1)"
+            out="../dist/Unreal-Android-$version-fr-$flavor-release.apk"
+            if [ -n "$KEYSTORE" ]; then
+              "$tools/zipalign" -f -p 4 "$in" "$RUNNER_TEMP/aligned.apk"
+              "$tools/apksigner" sign --ks "$RUNNER_TEMP/debug.keystore" --ks-key-alias androiddebugkey                 --ks-pass pass:android --key-pass pass:android --out "$out" "$RUNNER_TEMP/aligned.apk"
+              "$tools/apksigner" verify --print-certs "$out" | grep "SHA-256"
+            else
+              cp "$in" "$out"
+            fi
           done
+          rm -f "$RUNNER_TEMP/debug.keystore" ../dist/*.idsig
           ls -l ../dist
 
       - uses: actions/upload-artifact@v4
