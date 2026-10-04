@@ -6,6 +6,7 @@ name: Build Android APKs
 # secret (a debug.keystore, base64) is put where Gradle looks for that key, so
 # each build installs over the one before. Without it, the runner's own debug
 # key signs them.
+# A successful build of the default branch is published as a GitHub release.
 on:
   push:
     paths-ignore:
@@ -17,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android:
@@ -78,3 +79,26 @@ jobs:
           name: Unreal-Android-APK
           path: dist/*.apk
           retention-days: 14
+
+      # a successful build of the default branch becomes a GitHub release
+      # (build-<run number>, marked latest, the APKs attached); the last five
+      # build-* releases are kept
+      - name: Publish release
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          tag="build-$GITHUB_RUN_NUMBER"
+          subject="$(printf '%s' "${MESSAGE:-manual run}" | head -n 1)"
+          printf '%s\n\nCommit: %s/%s/commit/%s\nBuild: %s/%s/actions/runs/%s\n' "$subject" \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$RUNNER_TEMP/notes.md"
+          gh release create "$tag" dist/*.apk --target "$GITHUB_SHA" --latest \
+            --title "Build $GITHUB_RUN_NUMBER (${GITHUB_SHA:0:7})" --notes-file "$RUNNER_TEMP/notes.md"
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
+          while read -r old; do
+            gh release delete "$old" --cleanup-tag --yes
+          done
