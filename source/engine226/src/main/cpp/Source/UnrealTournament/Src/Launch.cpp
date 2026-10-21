@@ -339,6 +339,27 @@ int CleanUpOnExit(int ErrorLevel)
 int main( int argc, char* argv[] )
 {
 	UT99_ANDROID_LOGI("main entered argc=%d argv0=%s", argc, (argc>0 && argv && argv[0]) ? argv[0] : "<null>");
+#ifdef PLATFORM_ANDROID
+	// The app passes the game data root as "--ue1-root <dir>", like the v200
+	// engine. Export it for the platform layer, run from System and remove the
+	// pair from the engine command line.
+	for( INT i=1; i+1<argc; i++ )
+	{
+		if( strcmp(argv[i],"--ue1-root")!=0 )
+			continue;
+		char SystemDir[PATH_MAX];
+		snprintf( SystemDir, sizeof(SystemDir), "%s/System", argv[i+1] );
+		setenv( "HOME", argv[i+1], 1 );
+		setenv( "UT99_ANDROID_DATA", argv[i+1], 1 );
+		setenv( "UT99_ANDROID_BASEDIR", SystemDir, 1 );
+		if( chdir(SystemDir)!=0 )
+			UT99_ANDROID_LOGI("chdir(%s) failed", SystemDir);
+		for( INT j=i; j+2<argc; j++ )
+			argv[j] = argv[j+2];
+		argc -= 2;
+		break;
+	}
+#endif
 #ifdef PLATFORM_DREAMCAST
 	// fix thread stack underrun
 	init_thread_stack();
@@ -412,7 +433,7 @@ int main( int argc, char* argv[] )
 	UT99_ANDROID_LOGI("before appInit");
 	GIsClient = 1; 
 	GIsGuarded = 0;
-	appInit( TEXT("UnrealTournament"), CmdLine, &Malloc, &Log, &Error, &Warn, &FileManager, FConfigCacheIni::Factory, 1 );
+	appInit( TEXT("Unreal"), CmdLine, &Malloc, &Log, &Error, &Warn, &FileManager, FConfigCacheIni::Factory, 1 );
 	UT99_ANDROID_LOGI("after appInit");
 #ifdef PLATFORM_ANDROID
 	ForceLinkAndroidAudioPackage();

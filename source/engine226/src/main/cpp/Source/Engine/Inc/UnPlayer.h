@@ -18,6 +18,9 @@
 class ENGINE_API UPlayer : public UObject, public FOutputDevice, public FExec
 {
 	DECLARE_ABSTRACT_CLASS(UPlayer,UObject,CLASS_Transient|CLASS_Config)
+#if defined(PLATFORM_ANDROID)
+	void StaticConstructor();
+#endif
 
 	// Objects.
 	APlayerPawn*	Actor;

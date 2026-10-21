@@ -210,6 +210,7 @@ void APawn::StaticConstructor()
     UT99_LAYOUT_FIELD(noise2other,ObjectProperty)
     UT99_LAYOUT_FIELD(noise2spot,StructProperty)
     UT99_LAYOUT_FIELD(noise2time,FloatProperty)
+    UT99_LAYOUT_ALIAS(VoiceTypeClass,VoiceType,ClassProperty)
 }
 
 void APlayerPawn::StaticConstructor()
@@ -389,6 +390,10 @@ void APlayerPawn::StaticConstructor()
     UT99_LAYOUT_FIELD(shaketimer,FloatProperty)
     UT99_LAYOUT_FIELD(shakevert,FloatProperty)
     UT99_LAYOUT_FIELD(verttimer,FloatProperty)
+    UT99_LAYOUT_FIELD(NetSpeed,IntProperty)
+    UT99_LAYOUT_FIELD(LanSpeed,IntProperty)
+    UT99_LAYOUT_FIELD(KbdAccel,FloatProperty)
+    UT99_LAYOUT_FIELD(CantChangeNameMsg,StrProperty)
 }
 
 void AGameInfo::StaticConstructor()
@@ -494,6 +499,13 @@ void AGameInfo::StaticConstructor()
     UT99_LAYOUT_BOOL(bTeamGame)
     UT99_LAYOUT_BOOL(bVeryLowGore)
     UT99_LAYOUT_BOOL(bWorldLog)
+    UT99_LAYOUT_BOOL(bLocalLogQuery)
+    UT99_LAYOUT_FIELD(LocalBatcherURL,StrProperty)
+    UT99_LAYOUT_FIELD(LocalBatcherParams,StrProperty)
+    UT99_LAYOUT_FIELD(LocalStatsURL,StrProperty)
+    UT99_LAYOUT_FIELD(WorldBatcherURL,StrProperty)
+    UT99_LAYOUT_FIELD(WorldBatcherParams,StrProperty)
+    UT99_LAYOUT_FIELD(WorldStatsURL,StrProperty)
 }
 
 void AInventory::StaticConstructor()
@@ -621,6 +633,7 @@ void AMover::StaticConstructor()
     UT99_LAYOUT_FIELD(myMarker,ObjectProperty)
     UT99_LAYOUT_FIELD(numTriggerEvents,IntProperty)
     UT99_LAYOUT_FIELD(oldRot,StructProperty)
+    UT99_LAYOUT_FIELD(ServerUpdate,IntProperty)
 }
 
 void AStatLog::StaticConstructor()
@@ -682,6 +695,7 @@ void ASavedMove::StaticConstructor()
     UT99_LAYOUT_BOOL(bForceFire)
     UT99_LAYOUT_BOOL(bPressedJump)
     UT99_LAYOUT_BOOL(bRun)
+    UT99_LAYOUT_BOOL(bSent)
 }
 
 void AMutator::StaticConstructor()
@@ -725,6 +739,7 @@ void ANavigationPoint::StaticConstructor()
     UT99_LAYOUT_BOOL(taken)
     UT99_LAYOUT_FIELD(upstreamPaths,IntProperty)
     UT99_LAYOUT_FIELD(visitedWeight,IntProperty)
+    UT99_LAYOUT_FIELD(PathDescription,ByteProperty)
 }
 
 void ATrigger::StaticConstructor()
@@ -766,4 +781,205 @@ void AAmmo::StaticConstructor()
     UT99_LAYOUT_FIELD(ParentAmmo,ClassProperty)
     UT99_LAYOUT_FIELD(UsedInWeaponSlot,ByteProperty)
     UT99_LAYOUT_FIELD(PAmmo,ObjectProperty)
+}
+
+// Unreal Gold 226 layout: members are matched by name, not position.
+void AHUD::StaticConstructor()
+{
+    typedef AHUD FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    UT99_LAYOUT_FIELD(HudMode,IntProperty)
+    UT99_LAYOUT_FIELD(Crosshair,IntProperty)
+    UT99_LAYOUT_FIELD(MainMenuType,ClassProperty)
+    UT99_LAYOUT_FIELD(HUDConfigWindowType,StrProperty)
+    UT99_LAYOUT_FIELD(MainMenu,ObjectProperty)
+}
+
+// Unreal Gold 226 layout: members are matched by name, not position.
+void AGameReplicationInfo::StaticConstructor()
+{
+    typedef AGameReplicationInfo FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    UT99_LAYOUT_FIELD(GameName,StrProperty)
+    UT99_LAYOUT_BOOL(bTeamGame)
+    UT99_LAYOUT_FIELD(RemainingTime,IntProperty)
+    UT99_LAYOUT_FIELD(ElapsedTime,IntProperty)
+    UT99_LAYOUT_FIELD(ServerName,StrProperty)
+    UT99_LAYOUT_FIELD(ShortName,StrProperty)
+    UT99_LAYOUT_FIELD(AdminName,StrProperty)
+    UT99_LAYOUT_FIELD(AdminEmail,StrProperty)
+    UT99_LAYOUT_FIELD(Region,IntProperty)
+    UT99_LAYOUT_BOOL(ShowMOTD)
+    UT99_LAYOUT_FIELD(MOTDLine1,StrProperty)
+    UT99_LAYOUT_FIELD(MOTDLine2,StrProperty)
+    UT99_LAYOUT_FIELD(MOTDLine3,StrProperty)
+    UT99_LAYOUT_FIELD(MOTDLine4,StrProperty)
+    UT99_LAYOUT_FIELD(GameEndedComments,StrProperty)
+}
+
+// Unreal Gold 226 layout: members are matched by name, not position.
+void APlayerReplicationInfo::StaticConstructor()
+{
+    typedef APlayerReplicationInfo FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    UT99_LAYOUT_FIELD(PlayerName,StrProperty)
+    UT99_LAYOUT_FIELD(PlayerID,IntProperty)
+    UT99_LAYOUT_FIELD(TeamName,StrProperty)
+    UT99_LAYOUT_FIELD(Team,ByteProperty)
+    UT99_LAYOUT_FIELD(TeamID,IntProperty)
+    UT99_LAYOUT_FIELD(Score,FloatProperty)
+    UT99_LAYOUT_FIELD(Spree,FloatProperty)
+    UT99_LAYOUT_FIELD(VoiceType,ClassProperty)
+    UT99_LAYOUT_FIELD(HasFlag,ObjectProperty)
+    UT99_LAYOUT_FIELD(Ping,IntProperty)
+    UT99_LAYOUT_BOOL(bIsFemale)
+    UT99_LAYOUT_BOOL(bIsABot)
+    UT99_LAYOUT_BOOL(bFeigningDeath)
+    UT99_LAYOUT_BOOL(bIsSpectator)
+    UT99_LAYOUT_FIELD(TalkTexture,ObjectProperty)
+    UT99_LAYOUT_FIELD(PlayerZone,ObjectProperty)
+}
+
+// Unreal Gold 226 layout: members are matched by name, not position.
+void AWeapon::StaticConstructor()
+{
+    typedef AWeapon FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    UT99_LAYOUT_FIELD(MaxTargetRange,FloatProperty)
+    UT99_LAYOUT_FIELD(AmmoName,ClassProperty)
+    UT99_LAYOUT_FIELD(ReloadCount,ByteProperty)
+    UT99_LAYOUT_FIELD(PickupAmmoCount,IntProperty)
+    UT99_LAYOUT_FIELD(AmmoType,ObjectProperty)
+    UT99_LAYOUT_BOOL(bPointing)
+    UT99_LAYOUT_BOOL(bInstantHit)
+    UT99_LAYOUT_BOOL(bAltInstantHit)
+    UT99_LAYOUT_BOOL(bWarnTarget)
+    UT99_LAYOUT_BOOL(bAltWarnTarget)
+    UT99_LAYOUT_BOOL(bWeaponUp)
+    UT99_LAYOUT_BOOL(bChangeWeapon)
+    UT99_LAYOUT_BOOL(bLockedOn)
+    UT99_LAYOUT_BOOL(bSplashDamage)
+    UT99_LAYOUT_BOOL(bCanThrow)
+    UT99_LAYOUT_BOOL(bRecommendSplashDamage)
+    UT99_LAYOUT_BOOL(bWeaponStay)
+    UT99_LAYOUT_BOOL(bOwnsCrosshair)
+    UT99_LAYOUT_BOOL(bHideWeapon)
+    UT99_LAYOUT_BOOL(bMeleeWeapon)
+    UT99_LAYOUT_BOOL(bRapidFire)
+    UT99_LAYOUT_BOOL(bTossedOut)
+    UT99_LAYOUT_FIELD(FiringSpeed,FloatProperty)
+    UT99_LAYOUT_FIELD(FireOffset,StructProperty)
+    UT99_LAYOUT_FIELD(ProjectileClass,ClassProperty)
+    UT99_LAYOUT_FIELD(AltProjectileClass,ClassProperty)
+    UT99_LAYOUT_FIELD(MyDamageType,NameProperty)
+    UT99_LAYOUT_FIELD(AltDamageType,NameProperty)
+    UT99_LAYOUT_FIELD(ProjectileSpeed,FloatProperty)
+    UT99_LAYOUT_FIELD(AltProjectileSpeed,FloatProperty)
+    UT99_LAYOUT_FIELD(aimerror,FloatProperty)
+    UT99_LAYOUT_FIELD(shakemag,FloatProperty)
+    UT99_LAYOUT_FIELD(shaketime,FloatProperty)
+    UT99_LAYOUT_FIELD(shakevert,FloatProperty)
+    UT99_LAYOUT_FIELD(AIRating,FloatProperty)
+    UT99_LAYOUT_FIELD(RefireRate,FloatProperty)
+    UT99_LAYOUT_FIELD(AltRefireRate,FloatProperty)
+    UT99_LAYOUT_FIELD(FireSound,ObjectProperty)
+    UT99_LAYOUT_FIELD(AltFireSound,ObjectProperty)
+    UT99_LAYOUT_FIELD(CockingSound,ObjectProperty)
+    UT99_LAYOUT_FIELD(SelectSound,ObjectProperty)
+    UT99_LAYOUT_FIELD(Misc1Sound,ObjectProperty)
+    UT99_LAYOUT_FIELD(Misc2Sound,ObjectProperty)
+    UT99_LAYOUT_FIELD(Misc3Sound,ObjectProperty)
+    UT99_LAYOUT_FIELD(MessageNoAmmo,StrProperty)
+    UT99_LAYOUT_FIELD(DeathMessage,StrProperty)
+    UT99_LAYOUT_FIELD(AdjustedAim,StructProperty)
+    UT99_LAYOUT_BOOL(bSetFlashTime)
+    UT99_LAYOUT_BOOL(bDrawMuzzleFlash)
+    UT99_LAYOUT_FIELD(bMuzzleFlash,ByteProperty)
+    UT99_LAYOUT_FIELD(FlashTime,FloatProperty)
+    UT99_LAYOUT_FIELD(MuzzleScale,FloatProperty)
+    UT99_LAYOUT_FIELD(FlashY,FloatProperty)
+    UT99_LAYOUT_FIELD(FlashO,FloatProperty)
+    UT99_LAYOUT_FIELD(FlashC,FloatProperty)
+    UT99_LAYOUT_FIELD(FlashLength,FloatProperty)
+    UT99_LAYOUT_FIELD(FlashS,IntProperty)
+    UT99_LAYOUT_FIELD(MFTexture,ObjectProperty)
+    UT99_LAYOUT_FIELD(MuzzleFlare,ObjectProperty)
+    UT99_LAYOUT_FIELD(FlareOffset,FloatProperty)
+}
+
+// Unreal Gold 226 layout: members are matched by name, not position.
+void AZoneInfo::StaticConstructor()
+{
+    typedef AZoneInfo FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    UT99_LAYOUT_FIELD(ZoneTag,NameProperty)
+    UT99_LAYOUT_FIELD(ZoneGravity,StructProperty)
+    UT99_LAYOUT_FIELD(ZoneVelocity,StructProperty)
+    UT99_LAYOUT_FIELD(ZoneGroundFriction,FloatProperty)
+    UT99_LAYOUT_FIELD(ZoneFluidFriction,FloatProperty)
+    UT99_LAYOUT_FIELD(ZoneTerminalVelocity,FloatProperty)
+    UT99_LAYOUT_FIELD(ZonePlayerEvent,NameProperty)
+    UT99_LAYOUT_FIELD(ZonePlayerCount,IntProperty)
+    UT99_LAYOUT_FIELD(NumCarcasses,IntProperty)
+    UT99_LAYOUT_FIELD(DamagePerSec,IntProperty)
+    UT99_LAYOUT_FIELD(DamageType,NameProperty)
+    UT99_LAYOUT_FIELD(DamageString,StrProperty)
+    UT99_LAYOUT_FIELD(ZoneName,StrProperty)
+    UT99_LAYOUT_FIELD(LocationStrings,StrProperty)
+    UT99_LAYOUT_FIELD(MaxCarcasses,IntProperty)
+    UT99_LAYOUT_FIELD(EntrySound,ObjectProperty)
+    UT99_LAYOUT_FIELD(ExitSound,ObjectProperty)
+    UT99_LAYOUT_FIELD(EntryActor,ClassProperty)
+    UT99_LAYOUT_FIELD(ExitActor,ClassProperty)
+    UT99_LAYOUT_FIELD(SkyZone,ObjectProperty)
+    UT99_LAYOUT_BOOL(bWaterZone)
+    UT99_LAYOUT_BOOL(bFogZone)
+    UT99_LAYOUT_BOOL(bKillZone)
+    UT99_LAYOUT_BOOL(bNeutralZone)
+    UT99_LAYOUT_BOOL(bGravityZone)
+    UT99_LAYOUT_BOOL(bPainZone)
+    UT99_LAYOUT_BOOL(bDestructive)
+    UT99_LAYOUT_BOOL(bNoInventory)
+    UT99_LAYOUT_BOOL(bMoveProjectiles)
+    UT99_LAYOUT_FIELD(AmbientBrightness,ByteProperty)
+    UT99_LAYOUT_FIELD(AmbientHue,ByteProperty)
+    UT99_LAYOUT_FIELD(AmbientSaturation,ByteProperty)
+    UT99_LAYOUT_FIELD(FogColor,StructProperty)
+    UT99_LAYOUT_FIELD(FogDistance,FloatProperty)
+    UT99_LAYOUT_FIELD(EnvironmentMap,ObjectProperty)
+    UT99_LAYOUT_FIELD(TexUPanSpeed,FloatProperty)
+    UT99_LAYOUT_FIELD(TexVPanSpeed,FloatProperty)
+    UT99_LAYOUT_FIELD(ViewFlash,StructProperty)
+    UT99_LAYOUT_FIELD(ViewFog,StructProperty)
+    UT99_LAYOUT_BOOL(bReverbZone)
+    UT99_LAYOUT_BOOL(bRaytraceReverb)
+    UT99_LAYOUT_FIELD(SpeedOfSound,FloatProperty)
+    UT99_LAYOUT_FIELD(MasterGain,ByteProperty)
+    UT99_LAYOUT_FIELD(CutoffHz,IntProperty)
+    UT99_LAYOUT_FIELD(Delay,ByteProperty)
+    UT99_LAYOUT_FIELD(Gain,ByteProperty)
+    UT99_LAYOUT_FIELD(LensFlare,ObjectProperty)
+    UT99_LAYOUT_FIELD(LensFlareOffset,FloatProperty)
+    UT99_LAYOUT_FIELD(LensFlareScale,FloatProperty)
+    UT99_LAYOUT_FIELD(MinLightCount,ByteProperty)
+    UT99_LAYOUT_FIELD(MaxLightCount,ByteProperty)
+    UT99_LAYOUT_FIELD(MinLightingPolyCount,IntProperty)
+    UT99_LAYOUT_FIELD(MaxLightingPolyCount,IntProperty)
+}
+
+// Unreal Gold 226 layout: members are matched by name, not position.
+void UPlayer::StaticConstructor()
+{
+    typedef UPlayer FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    // vfOut/vfExec stand for the FOutputDevice and FExec base vtables.
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("vfOut"),TEXT("IntProperty"),(INT)((BYTE*)(FOutputDevice*)this-(BYTE*)this),sizeof(void*),0,1);
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("vfExec"),TEXT("IntProperty"),(INT)((BYTE*)(FExec*)this-(BYTE*)this),sizeof(void*),0,1);
+    UT99_LAYOUT_FIELD(Actor,ObjectProperty)
+    UT99_LAYOUT_FIELD(Console,ObjectProperty)
+    UT99_LAYOUT_BOOL(bWindowsMouseAvailable)
+    UT99_LAYOUT_BOOL(bShowWindowsMouse)
+    UT99_LAYOUT_FIELD(WindowsMouseX,FloatProperty)
+    UT99_LAYOUT_FIELD(WindowsMouseY,FloatProperty)
+    UT99_LAYOUT_FIELD(SelectedCursor,ByteProperty)
 }

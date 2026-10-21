@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "com.ast.unreal"
 include(":app")
+include(":engine226")

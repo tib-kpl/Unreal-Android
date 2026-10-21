@@ -111,6 +111,7 @@ void AActor::StaticConstructor()
 #include "UnModernActorLayouts.inc"
 #undef UT99_LAYOUT_BOOL
 #undef UT99_LAYOUT_FIELD
+#undef UT99_LAYOUT_ALIAS
 #endif
 
 IMPLEMENT_CLASS(AActor);

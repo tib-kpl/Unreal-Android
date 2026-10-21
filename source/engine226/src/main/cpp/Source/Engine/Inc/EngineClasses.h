@@ -1112,7 +1112,7 @@ public:
     {
         AActor_eventPostTouch_Parms Parms;
         Parms.Other=Other;
-        ProcessEvent(FindFunctionChecked(ENGINE_PostTouch),&Parms);
+        if(UFunction* UnrealOptionalEvent=FindFunction(ENGINE_PostTouch)) ProcessEvent(UnrealOptionalEvent,&Parms); // absent in Unreal 226
     }
     void eventTouch(class AActor* Other)
     {
@@ -1512,7 +1512,7 @@ public:
     {
         APawn_eventUpdateTactics_Parms Parms;
         Parms.DeltaTime=DeltaTime;
-        ProcessEvent(FindFunctionChecked(ENGINE_UpdateTactics),&Parms);
+        if(UFunction* UnrealOptionalEvent=FindFunction(ENGINE_UpdateTactics)) ProcessEvent(UnrealOptionalEvent,&Parms); // absent in Unreal 226
     }
     void eventUpdateEyeHeight(FLOAT DeltaTime)
     {
@@ -1580,7 +1580,7 @@ public:
     }
     void eventAlterDestination()
     {
-        ProcessEvent(FindFunctionChecked(ENGINE_AlterDestination),NULL);
+        if(UFunction* UnrealOptionalEvent=FindFunction(ENGINE_AlterDestination)) ProcessEvent(UnrealOptionalEvent,NULL); // absent in Unreal 226
     }
     void eventMayFall()
     {
@@ -1589,6 +1589,7 @@ public:
 
 #if defined(PLATFORM_ANDROID)
     BITFIELD bPawnLink:1 GCC_PACK(4);
+    class UClass* VoiceTypeClass; // Unreal 226 Pawn.VoiceType (UT: string)
     void StaticConstructor();
 #endif
 #if defined(PLATFORM_ANDROID)
@@ -1894,6 +1895,12 @@ public:
     DECLARE_FUNCTION(execStartTextInput);
     DECLARE_FUNCTION(execStopTextInput);
 #endif
+#if defined(PLATFORM_ANDROID)
+    INT NetSpeed;
+    INT LanSpeed;
+    FLOAT KbdAccel;
+    FString CantChangeNameMsg;
+#endif
     DECLARE_CLASS(APlayerPawn,APawn,0|CLASS_Config|CLASS_NativeReplication)
     #include "APlayerPawn.h"
 };
@@ -2027,6 +2034,9 @@ public:
     FRotator oldRot;
     void StaticConstructor();
 #endif
+#if defined(PLATFORM_ANDROID)
+    INT ServerUpdate;
+#endif
     DECLARE_CLASS(AMover,ABrush,0|CLASS_NativeReplication)
     #include "AMover.h"
 };
@@ -2159,6 +2169,10 @@ public:
     FStringNoInit MOTDLine4;
     FStringNoInit GameEndedComments;
     class APlayerReplicationInfo* PRIArray[32];
+#if defined(PLATFORM_ANDROID)
+    BITFIELD ShowMOTD:1 GCC_PACK(4);
+    void StaticConstructor();
+#endif
     DECLARE_CLASS(AGameReplicationInfo,AReplicationInfo,0|CLASS_Config|CLASS_NativeReplication)
     #include "AGameReplicationInfo.h"
 };
@@ -2190,6 +2204,10 @@ public:
     class Alocationid* PlayerLocation;
     INT StartTime;
     INT TimeAcc;
+#if defined(PLATFORM_ANDROID)
+    FLOAT Spree;
+    void StaticConstructor();
+#endif
     DECLARE_CLASS(APlayerReplicationInfo,AReplicationInfo,0|CLASS_NativeReplication)
     #include "APlayerReplicationInfo.h"
 };
@@ -2244,14 +2262,14 @@ public:
         Parms.SpecialID=SpecialID;
         Parms.SpecialParam=SpecialParam;
         Parms.SpecialParam2=SpecialParam2;
-        ProcessEvent(FindFunctionChecked(ENGINE_LogGameSpecial2),&Parms);
+        if(UFunction* UnrealOptionalEvent=FindFunction(ENGINE_LogGameSpecial2)) ProcessEvent(UnrealOptionalEvent,&Parms); // absent in Unreal 226
     }
     void eventLogGameSpecial(const FString& SpecialID, const FString& SpecialParam)
     {
         AStatLog_eventLogGameSpecial_Parms Parms;
         Parms.SpecialID=SpecialID;
         Parms.SpecialParam=SpecialParam;
-        ProcessEvent(FindFunctionChecked(ENGINE_LogGameSpecial),&Parms);
+        if(UFunction* UnrealOptionalEvent=FindFunction(ENGINE_LogGameSpecial)) ProcessEvent(UnrealOptionalEvent,&Parms); // absent in Unreal 226
     }
 
 #if defined(PLATFORM_ANDROID)
@@ -2286,6 +2304,43 @@ public:
     NO_DEFAULT_CONSTRUCTOR(AStatLogFile)
 };
 
+// Unreal 226 Engine.TimeDemo (UT moved timedemo into the console).
+class ENGINE_API ATimeDemo : public AInfo
+{
+public:
+    INT FileAr;
+    FLOAT TimePassed;
+    FLOAT TimeDilation;
+    FLOAT StartTime;
+    FLOAT LastSecTime;
+    FLOAT LastCycleTime;
+    FLOAT LastFrameTime;
+    FLOAT SquareSum;
+    INT FrameNum;
+    INT FrameLastSecond;
+    INT FrameLastCycle;
+    INT CycleCount;
+    INT QuitAfterCycles;
+    FStringNoInit CycleMessage;
+    FStringNoInit CycleResult;
+    BITFIELD bSaveToFile:1 GCC_PACK(4);
+    BITFIELD bFirstFrame:1;
+    FLOAT LastSec GCC_PACK(4);
+    FLOAT MinFPS;
+    FLOAT MaxFPS;
+    class AInterpolationPoint* OldPoint;
+    class AActor* NewPoint;
+    class UConsole* Console;
+    DECLARE_FUNCTION(execCloseFile);
+    DECLARE_FUNCTION(execWriteToFile);
+    DECLARE_FUNCTION(execOpenFile);
+#if defined(PLATFORM_ANDROID)
+    void StaticConstructor();
+#endif
+    DECLARE_CLASS(ATimeDemo,AInfo,0)
+    NO_DEFAULT_CONSTRUCTOR(ATimeDemo)
+};
+
 
 class ENGINE_API AInternetInfo : public AInfo
 {
@@ -2316,6 +2371,9 @@ public:
     FRotator SavedViewRotation;
     BYTE MergeCount;
     void StaticConstructor();
+#endif
+#if defined(PLATFORM_ANDROID)
+    BITFIELD bSent:1 GCC_PACK(4);
 #endif
     DECLARE_CLASS(ASavedMove,AInfo,0)
     NO_DEFAULT_CONSTRUCTOR(ASavedMove)
@@ -2400,6 +2458,10 @@ public:
         Parms.Other=Other;
         ProcessEvent(FindFunctionChecked(ENGINE_ActorEntered),&Parms);
     }
+#if defined(PLATFORM_ANDROID)
+    FString LocationStrings[4];
+    void StaticConstructor();
+#endif
     DECLARE_CLASS(AZoneInfo,AInfo,0|CLASS_NativeReplication)
     #include "AZoneInfo.h"
 };
@@ -2755,6 +2817,15 @@ public:
     BITFIELD bFixMultiWeaponBug:1 GCC_PACK(4);
     void StaticConstructor();
 #endif
+#if defined(PLATFORM_ANDROID)
+    BITFIELD bLocalLogQuery:1 GCC_PACK(4);
+    FString LocalBatcherURL;
+    FString LocalBatcherParams;
+    FString LocalStatsURL;
+    FString WorldBatcherURL;
+    FString WorldBatcherParams;
+    FString WorldStatsURL;
+#endif
     DECLARE_CLASS(AGameInfo,AInfo,0|CLASS_Config)
     NO_DEFAULT_CONSTRUCTOR(AGameInfo)
 };
@@ -2852,6 +2923,9 @@ public:
     BITFIELD bAutoBuilt:1 GCC_PACK(4);
     BITFIELD bTwoWay:1 GCC_PACK(4);
     void StaticConstructor();
+#endif
+#if defined(PLATFORM_ANDROID)
+    BYTE PathDescription;
 #endif
     DECLARE_CLASS(ANavigationPoint,AActor,0)
     NO_DEFAULT_CONSTRUCTOR(ANavigationPoint)
@@ -3056,6 +3130,9 @@ public:
         Parms.Canvas=Canvas;
         ProcessEvent(FindFunctionChecked(ENGINE_PreRender),&Parms);
     }
+#if defined(PLATFORM_ANDROID)
+    void StaticConstructor();
+#endif
     DECLARE_CLASS(AHUD,AActor,0|CLASS_Config)
     NO_DEFAULT_CONSTRUCTOR(AHUD)
 };
@@ -3282,6 +3359,10 @@ public:
     class UTexture* MuzzleFlare;
     FLOAT FlareOffset;
     INT* GetOptimizedRepList(BYTE*,FPropertyRetirement*,INT*,UPackageMap*);
+#if defined(PLATFORM_ANDROID)
+    BITFIELD bTossedOut:1 GCC_PACK(4);
+    void StaticConstructor();
+#endif
     DECLARE_CLASS(AWeapon,AInventory,0)
     NO_DEFAULT_CONSTRUCTOR(AWeapon)
 };
@@ -3427,6 +3508,10 @@ AUTOGENERATE_FUNCTION(AStatLogFile,-1,execGetChecksum);
 AUTOGENERATE_FUNCTION(AStatLogFile,-1,execWatermark);
 AUTOGENERATE_FUNCTION(AStatLogFile,-1,execCloseLog);
 AUTOGENERATE_FUNCTION(AStatLogFile,-1,execOpenLog);
+AUTOGENERATE_FUNCTION(AStatLogFile,-1,execGetPlayerChecksum);
+AUTOGENERATE_FUNCTION(ATimeDemo,-1,execOpenFile);
+AUTOGENERATE_FUNCTION(ATimeDemo,-1,execWriteToFile);
+AUTOGENERATE_FUNCTION(ATimeDemo,-1,execCloseFile);
 AUTOGENERATE_FUNCTION(AStatLog,-1,execGetMapFileName);
 AUTOGENERATE_FUNCTION(AStatLog,-1,execGetGMTRef);
 AUTOGENERATE_FUNCTION(AStatLog,-1,execGetPlayerChecksum);

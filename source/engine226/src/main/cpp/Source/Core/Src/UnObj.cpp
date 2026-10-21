@@ -3327,8 +3327,27 @@ UObject* UObject::StaticConstructObject
 		}
 		else
 		{
-			// Not an Actor - just call the constructor normally
+			// Classes without a user constructor (the v61 map containers UVectors,
+			// UBspNodes...) are value-initialized, which zeroes the UObject header.
+			INT SavedIndex = Result->Index;
+			UClass* SavedClass = Result->Class;
+			UObject* SavedOuter = Result->Outer;
+			FName SavedName = Result->Name;
+			DWORD SavedFlags = Result->ObjectFlags;
+			UObject* SavedHashNext = Result->HashNext;
+			FStateFrame* SavedStateFrame = Result->StateFrame;
+			ULinkerLoad* SavedLinker = Result->_Linker;
+			INT SavedLinkerIndex = Result->_LinkerIndex;
 			(*InClass->ClassConstructor)( Result );
+			Result->Index = SavedIndex;
+			Result->Class = SavedClass;
+			Result->Outer = SavedOuter;
+			Result->Name = SavedName;
+			Result->ObjectFlags = SavedFlags;
+			Result->HashNext = SavedHashNext;
+			Result->StateFrame = SavedStateFrame;
+			Result->_Linker = SavedLinker;
+			Result->_LinkerIndex = SavedLinkerIndex;
 		}
 	}
 	return Result;

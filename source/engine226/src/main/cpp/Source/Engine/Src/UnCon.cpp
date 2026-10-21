@@ -70,6 +70,7 @@ void UConsole::StaticConstructor()
     UT99RegisterNativeFieldLayout(GetClass(),TEXT("numLines"),TEXT("IntProperty"),STRUCT_OFFSET(FLayoutClass,numLines),sizeof(numLines),0,UT99NativeFieldCapacity(numLines));
     UT99RegisterNativeFieldLayout(GetClass(),TEXT("vtblOut"),TEXT("IntProperty"),(BYTE*)(FOutputDevice*)this-(BYTE*)this,sizeof(void*));
     UT99RegisterNativeFieldLayout(GetClass(),TEXT("vtblOut"),TEXT("PointerProperty"),(BYTE*)(FOutputDevice*)this-(BYTE*)this,sizeof(void*));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("TimeDemo"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,TimeDemo),sizeof(TimeDemo),0,UT99NativeFieldCapacity(TimeDemo));
 }
 #undef UT99_LAYOUT_BOOL
 #undef UT99_LAYOUT_FIELD

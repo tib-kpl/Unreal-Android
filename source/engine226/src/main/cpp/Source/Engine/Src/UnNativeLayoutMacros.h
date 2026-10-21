@@ -1,4 +1,5 @@
 // Include only around an explicit native field registration block.
+#define UT99_LAYOUT_ALIAS(Member,Name,Type) UT99RegisterNativeFieldLayout(GetClass(),TEXT(#Name),TEXT(#Type),STRUCT_OFFSET(FLayoutClass,Member),sizeof(Member),0,UT99NativeFieldCapacity(Member));
 #define UT99_LAYOUT_FIELD(Member,Type) UT99RegisterNativeFieldLayout(GetClass(),TEXT(#Member),TEXT(#Type),STRUCT_OFFSET(FLayoutClass,Member),sizeof(Member),0,UT99NativeFieldCapacity(Member));
 #define UT99_LAYOUT_BOOL(Member) \
     { \

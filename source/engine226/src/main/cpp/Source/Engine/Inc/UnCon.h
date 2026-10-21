@@ -62,7 +62,7 @@ class ENGINE_API UConsole : public UObject, public FOutputDevice
     }
     void eventVideoChange()
     {
-        ProcessEvent(FindFunctionChecked(NAME_VideoChange),NULL);
+        if(UFunction* UnrealOptionalEvent=FindFunction(NAME_VideoChange)) ProcessEvent(UnrealOptionalEvent,NULL); // absent in Unreal 226
     }
     void eventPostRender(class UCanvas* C)
     {
@@ -103,7 +103,7 @@ class ENGINE_API UConsole : public UObject, public FOutputDevice
         UConsole_eventConnectFailure_Parms Parms;
         Parms.FailCode=FailCode;
         Parms.URL=URL;
-        ProcessEvent(FindFunctionChecked(NAME_ConnectFailure),&Parms);
+        if(UFunction* UnrealOptionalEvent=FindFunction(NAME_ConnectFailure)) ProcessEvent(UnrealOptionalEvent,&Parms); // absent in Unreal 226
     }
 	UBOOL IsTimeDemo()
 	{
@@ -175,6 +175,7 @@ private:
 #if defined(PLATFORM_ANDROID)
     BITFIELD bControlDown:1 GCC_PACK(4);
     INT TypeCursorOffset;
+    class UObject* TimeDemo; // Unreal 226 Console.TimeDemo
     void StaticConstructor();
 #endif
 };

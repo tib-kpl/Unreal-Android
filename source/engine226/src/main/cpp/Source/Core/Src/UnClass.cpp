@@ -49,6 +49,10 @@ static void ApplyAndroidNativeLayout(UStruct* Owner,UProperty* Property,INT Nati
         if(UBoolProperty* Bool=Cast<UBoolProperty>(Property)) Bool->BitMask=Field.BoolMask;
         return;
     }
+    for(INT Index=0;Index<Fields.Num();++Index)
+        if(Fields(Index).Owner==Owner)
+            debugf(NAME_Warning,TEXT("Registered %s.%s (%s) owner=%s"),Owner->GetName(),*Fields(Index).Name,*Fields(Index).Type,Fields(Index).Owner->GetPathName());
+    debugf(NAME_Warning,TEXT("Looked up %s.%s (%s) owner=%s"),Owner->GetName(),Property->GetName(),Property->GetClass()->GetName(),Owner->GetPathName());
     appErrorf(TEXT("Unsupported native member %s.%s (%s)"),Owner->GetName(),Property->GetName(),Property->GetClass()->GetName());
 }
 #endif
@@ -425,7 +429,8 @@ void UStruct::Link( FArchive& Ar, UBOOL Props )
     const UBOOL NativeLayout=HasAndroidNativeLayout(this);
 #endif
 
-#if defined(PLATFORM_ANDROID)
+#if defined(PLATFORM_ANDROID) && !defined(UNREAL_GOLD_226)
+	// UT 469 script API additions for UT server mods; not used by Unreal.
 	LegacyScriptCompat::Extend(this,Ar,Props);
 #endif
 
@@ -476,6 +481,15 @@ void UStruct::Link( FArchive& Ar, UBOOL Props )
 		// different offsets. Continuing with the larger size only hides the
 		// incompatible layout; property access and native replication can still
 		// read the wrong member. Reject that data/code combination deterministically.
+		// Unreal 226 scripts omit members UT later appended to native classes
+		// (Engine.CurrentTickRate, Projectile.ExplosionDecal...). Their script
+		// members keep the C++ offsets; keep the C++ size so subclasses start
+		// after it. Classes changed in the middle use name-based layouts.
+		if( IntrinsicSize>0 && PropertiesSize<IntrinsicSize )
+		{
+			debugf( NAME_Log, TEXT("Native class %s: script=%i C++=%i, using C++ size"), GetName(), PropertiesSize, IntrinsicSize );
+			PropertiesSize = IntrinsicSize;
+		}
 		if( IntrinsicSize>0 && PropertiesSize!=IntrinsicSize )
 		{
 			debugf( NAME_Warning, TEXT("Native class size mismatch: %s script=%i C++=%i"), GetName(), PropertiesSize, IntrinsicSize );
