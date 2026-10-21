@@ -16,7 +16,7 @@ final class Unreal226Config {
     private Unreal226Config() {}
 
     /** Creates System/Android226.ini on first launch; later launches keep user changes. */
-    static void ensureAndroidIni(File system) {
+    static void ensureAndroidIni(File system, String language) {
         File ini = new File(system, Unreal226Activity.INI_NAME);
         try {
             String text;
@@ -35,6 +35,8 @@ final class Unreal226Config {
             text = upsert(text, "Engine.Engine", "AudioDevice", "Audio.GenericAudioSubsystem");
             text = upsert(text, "Engine.Engine", "ViewportManager", "NSDLDrv.NSDLClient");
             text = upsert(text, "Engine.Engine", "NetworkDevice", "IpDrv.TcpNetDriver");
+            text = upsert(text, "Engine.Engine", "Language", language);
+            text = soundLanguagePath(text, language);
             if (!ini.isFile()) {
                 text = upsert(text, "NSDLDrv.NSDLClient", "StartupFullscreen", "True");
                 text = upsert(text, "NSDLDrv.NSDLClient", "UseJoystick", "True");
@@ -54,6 +56,27 @@ final class Unreal226Config {
             if (t.regionMatches(true, 0, "Paths=", 0, 6) || t.regionMatches(true, 0, "SavePath=", 0, 9)
                     || t.regionMatches(true, 0, "CachePath=", 0, 10)) {
                 line = line.replace('\\', '/');
+            }
+            out.append(line);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Puts Paths=../Sounds/<language>/*.uax before the int voices, which share
+     * package names, and removes the paths of the other languages.
+     */
+    static String soundLanguagePath(String text, String language) {
+        StringBuilder out = new StringBuilder(text.length() + 40);
+        for (String line : text.split("(?<=\n)", -1)) {
+            String t = line.trim().toLowerCase(java.util.Locale.ROOT);
+            if (t.startsWith("paths=../sounds/") && t.endsWith("/*.uax") && !t.equals("paths=../sounds/*.uax")) {
+                String folder = t.substring("paths=../sounds/".length(), t.length() - "/*.uax".length());
+                if (!folder.equals("int")) continue;
+                if (!language.equals("int")) {
+                    String nl = line.endsWith("\r\n") ? "\r\n" : "\n";
+                    out.append("Paths=../Sounds/").append(language).append("/*.uax").append(nl);
+                }
             }
             out.append(line);
         }

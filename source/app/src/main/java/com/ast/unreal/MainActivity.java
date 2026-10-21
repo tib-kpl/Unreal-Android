@@ -2,22 +2,28 @@ package com.ast.unreal;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -26,11 +32,20 @@ public class MainActivity extends Activity {
     private static final int REQ_LEGACY_STORAGE = 2001;
     private static final int REQ_SELECT_UNREAL_FOLDER = 3001;
     private static final int REQ_SELECT_UNREAL_ZIP = 3002;
+    private static final int REQ_SELECT_PARENT_FOLDER = 3003;
+    private static final int REQ_FILE_ACCESS = 2002;
+    /** Opens the game data manager instead of starting the remembered game. */
+    static final String EXTRA_MANAGE_DATA = "com.ast.unreal.EXTRA_MANAGE_DATA";
     // UNREAL_ANDROID_FRENCH_LANGUAGE_V221: set by the "Game language" launcher shortcut.
     static final String EXTRA_CHOOSE_LANGUAGE = "com.ast.unreal.EXTRA_CHOOSE_LANGUAGE";
 
     private File selectedRoot;
     private String lastImportMessage;
+    private TextView busyMessage;
+    private Thread goldInstallerThread;
+    private Destination pendingDestination;
+    private Runnable afterFileAccess;
+    private boolean awaitingAllFilesAccess;
 
     private File unrealRoot() {
         if (selectedRoot == null) selectedRoot = UnrealDataPaths.findBestUnrealRoot(this);
@@ -54,6 +69,10 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         hideSystemUi();
+        if (awaitingAllFilesAccess) {
+            awaitingAllFilesAccess = false;
+            continueAfterFileAccess();
+        }
     }
 
     private boolean needsLegacyStoragePermission() {
@@ -66,10 +85,21 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQ_LEGACY_STORAGE) continueStartup();
+        if (requestCode == REQ_FILE_ACCESS) continueAfterFileAccess();
     }
 
     private void continueStartup() {
+        boolean manage = getIntent() != null && getIntent().getBooleanExtra(EXTRA_MANAGE_DATA, false);
+        File gold = UnrealGold.rememberedRoot(this);
+        if (gold != null && !manage) {
+            launchGold(gold);
+            return;
+        }
         selectedRoot = UnrealDataPaths.findBestUnrealRoot(this);
+        if (manage) {
+            showMissingDataScreen();
+            return;
+        }
         UnrealDataPaths.ensureDirectoryLayout(selectedRoot);
         UnrealDataPaths.installDefaultConfigsIfNeeded(this, selectedRoot);
         UnrealDataPaths.normalizeConfigForDetectedData(selectedRoot);
@@ -87,6 +117,11 @@ public class MainActivity extends Activity {
     // Ask for the game language on first start (or from the launcher shortcut),
     // fetch the French localization when needed, then start the engine.
     private void startGameWithLanguage(File root) {
+        if (UnrealGold.isGoldData(root)) {
+            UnrealGold.remember(this, root, null);
+            launchGold(root);
+            return;
+        }
         boolean askLanguage = getIntent() != null && getIntent().getBooleanExtra(EXTRA_CHOOSE_LANGUAGE, false);
         if (askLanguage || !UnrealDataPaths.hasGameLanguagePreference(this)) {
             if (getIntent() != null) getIntent().removeExtra(EXTRA_CHOOSE_LANGUAGE);
@@ -167,7 +202,15 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void launchGold(File root) {
+        Intent intent = new Intent(this, Unreal226Activity.class);
+        intent.putExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT, root.getAbsolutePath());
+        startActivity(intent);
+        finish();
+    }
+
     private void launchGame(File root) {
+        UnrealGold.forget(this);
         Intent intent = new Intent(this, UnrealSDLActivity.class);
         intent.putExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT, root.getAbsolutePath());
         startActivity(intent);
@@ -229,7 +272,7 @@ public class MainActivity extends Activity {
         body.setPadding(48, 36, 48, 36);
 
         TextView title = new TextView(this);
-        title.setText(t("Unreal-Daten fehlen", "Unreal data not found"));
+        title.setText(g("Données Unreal introuvables", t("Unreal-Daten fehlen", "Unreal data not found")));
         title.setTextSize(24);
         title.setGravity(Gravity.CENTER);
         body.addView(title);
@@ -237,7 +280,7 @@ public class MainActivity extends Activity {
         TextView msg = new TextView(this);
         String extra = "";
         if (lastImportMessage != null && lastImportMessage.length() > 0) {
-            extra = t("\n\nLetzte Meldung:\n", "\n\nLast message:\n") + lastImportMessage;
+            extra = g("\n\nDernier message :\n", t("\n\nLetzte Meldung:\n", "\n\nLast message:\n")) + lastImportMessage;
         }
         msg.setText(t(
                 "Es wurde kein vollständig lesbarer Unreal-Datenordner gefunden.\n\n" +
@@ -248,23 +291,53 @@ public class MainActivity extends Activity {
                 "Select the 'Unreal' folder or import a ZIP file containing the Unreal data.\n\n" +
                 "The selected folder or ZIP file must contain at least:\n" +
                 "System/Core.u\nSystem/Engine.u\nSystem/UnrealI.u or System/UnrealShare.u\nMaps/*.unr" + extra));
+        if (isFrenchUi()) {
+            msg.setText("Téléchargez Unreal Gold depuis OldUnreal, utilisez un dossier Unreal Gold existant, "
+                    + "ou importez vos fichiers Unreal (dossier ou ZIP).\n\n"
+                    + "L’installation Unreal Gold permet de choisir la langue, le stockage interne, la microSD ou un dossier personnel.\n\n"
+                    + "Fichiers requis : System/Core.u, System/Engine.u, System/UnrealShare.u, Maps/*.unr" + extra);
+        }
         msg.setTextSize(16);
         msg.setGravity(Gravity.CENTER);
         msg.setPadding(0, 24, 0, 24);
         body.addView(msg);
 
+        Button focus = null;
+        final File gold = UnrealGold.rememberedRoot(this);
+        if (gold != null) {
+            focus = goldButton(g("Lancer Unreal Gold", "Start Unreal Gold") + "\n" + gold.getAbsolutePath(), () -> launchGold(gold));
+            body.addView(focus);
+        }
+        if (selectedRoot != null && !UnrealGold.isGoldData(selectedRoot) && UnrealDataPaths.hasRequiredData(selectedRoot)) {
+            Button v200 = goldButton(g("Lancer Unreal (fichiers v200)", "Start Unreal (v200 data)") + "\n" + selectedRoot.getAbsolutePath(),
+                    () -> startGameWithLanguage(selectedRoot));
+            body.addView(v200);
+            if (focus == null) focus = v200;
+        }
+        Button install = goldButton(g("Télécharger et installer Unreal Gold (OldUnreal)", "Download and install Unreal Gold (OldUnreal)"),
+                this::chooseGoldLanguage);
+        body.addView(install);
+        if (focus == null) focus = install;
+        body.addView(goldButton(g("Utiliser un dossier Unreal Gold existant", "Use an existing Unreal Gold folder"), () -> {
+            pendingDestination = null;
+            requestFileAccess(this::openParentFolderPicker);
+        }));
+
         Button chooseFolder = new Button(this);
-        chooseFolder.setText(t("Unreal-Ordner auswählen", "Select Unreal folder"));
+        chooseFolder.setText(g("Importer mon dossier Unreal (copie)", t("Unreal-Ordner auswählen", "Select Unreal folder")));
+        chooseFolder.setAllCaps(false);
         chooseFolder.setOnClickListener(v -> openUnrealFolderPicker());
         body.addView(chooseFolder);
 
         Button chooseZip = new Button(this);
-        chooseZip.setText(t("Unreal-ZIP auswählen", "Select Unreal ZIP"));
+        chooseZip.setText(g("Importer une archive ZIP", t("Unreal-ZIP auswählen", "Select Unreal ZIP")));
+        chooseZip.setAllCaps(false);
         chooseZip.setOnClickListener(v -> openUnrealZipPicker());
         body.addView(chooseZip);
 
         Button retry = new Button(this);
-        retry.setText(t("Erneut prüfen", "Check again"));
+        retry.setText(g("Vérifier à nouveau", t("Erneut prüfen", "Check again")));
+        retry.setAllCaps(false);
         retry.setOnClickListener(v -> {
             selectedRoot = UnrealDataPaths.findBestUnrealRoot(this);
             UnrealDataPaths.ensureDirectoryLayout(selectedRoot);
@@ -282,6 +355,260 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.addView(body);
         setContentView(scroll);
+        hideSystemUi();
+        final Button initial = focus;
+        initial.post(initial::requestFocus);
+    }
+
+    private boolean isFrenchUi() {
+        Locale locale = currentLocale();
+        return locale != null && "fr".equalsIgnoreCase(locale.getLanguage());
+    }
+
+    private String g(String fr, String en) {
+        return isFrenchUi() ? fr : en;
+    }
+
+    private Button goldButton(String text, Runnable action) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        button.setOnClickListener(v -> action.run());
+        return button;
+    }
+
+    private AlertDialog.Builder dialog() {
+        return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (goldInstallerThread == null) { super.onBackPressed(); return; }
+        confirmCancelGold();
+    }
+
+    private void confirmCancelGold() {
+        dialog().setMessage(g("Annuler l’installation en cours ?", "Cancel the current installation?"))
+                .setNegativeButton(g("Continuer", "Continue"), null)
+                .setPositiveButton(g("Annuler l’installation", "Cancel installation"), (d, which) -> {
+                    if (goldInstallerThread != null) goldInstallerThread.interrupt();
+                }).show();
+    }
+
+    private void chooseGoldLanguage() {
+        final String[] names = {"English", "Français", "Deutsch", "Español", "Italiano"};
+        final String[] codes = {"int", "frt", "det", "est", "itt"};
+        dialog().setTitle(g("Langue du jeu", "Game language"))
+                .setItems(names, (d, which) -> chooseStorageVolume(volume ->
+                        chooseDestinationFolder(volume, destination -> installGold(destination, codes[which]))))
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private interface Destination { void use(File folder); }
+
+    private void chooseStorageVolume(Destination chosen) {
+        final List<File> volumes = new ArrayList<>();
+        File[] candidates = Build.VERSION.SDK_INT >= 19 ? getExternalFilesDirs(null) : new File[] { getExternalFilesDir(null) };
+        if (candidates != null) for (File dir : candidates) if (dir != null) volumes.add(dir);
+        if (volumes.isEmpty()) volumes.add(getFilesDir());
+        String[] names = new String[volumes.size() + 1];
+        for (int i = 0; i < volumes.size(); i++) {
+            names[i] = (i == 0 ? g("Stockage interne", "Internal storage") : g("Carte SD / stockage externe", "SD card / external storage"))
+                    + "\n" + volumes.get(i).getAbsolutePath();
+        }
+        names[volumes.size()] = g("Autre dossier…\nAu choix, conservé si l’application est désinstallée",
+                "Other folder…\nAny location, kept if the app is uninstalled");
+        dialog().setTitle(g("Emplacement d’installation", "Install location"))
+                .setItems(names, (d, which) -> {
+                    if (which < volumes.size()) chosen.use(volumes.get(which));
+                    else {
+                        pendingDestination = chosen;
+                        requestFileAccess(this::openParentFolderPicker);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private boolean hasAllFilesAccess() {
+        if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
+        return Build.VERSION.SDK_INT < 23
+                || checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // The native engine needs real file paths, so a folder outside the app's
+    // own directories requires "All files access" (or the legacy storage
+    // permission before Android 11).
+    private void requestFileAccess(Runnable granted) {
+        if (hasAllFilesAccess()) { granted.run(); return; }
+        afterFileAccess = granted;
+        dialog().setTitle(g("Autoriser l’accès aux fichiers", "Allow file access"))
+                .setMessage(g("Pour utiliser un dossier de votre choix, Android doit autoriser « Accès à tous les fichiers » pour cette application. Le jeu n’utilise que le dossier choisi.",
+                        "To use a folder of your choice, Android must allow “All files access” for this app. The game only uses the chosen folder."))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(g("Autoriser", "Allow"), (d, which) -> {
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        awaitingAllFilesAccess = true;
+                        try {
+                            startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                    Uri.parse("package:" + getPackageName())));
+                        } catch (ActivityNotFoundException ex) {
+                            startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                        }
+                    } else {
+                        requestPermissions(new String[] { Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE }, REQ_FILE_ACCESS);
+                    }
+                }).show();
+    }
+
+    private void continueAfterFileAccess() {
+        Runnable next = afterFileAccess;
+        afterFileAccess = null;
+        if (next != null && hasAllFilesAccess()) next.run();
+    }
+
+    private void openParentFolderPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+            startActivityForResult(intent, REQ_SELECT_PARENT_FOLDER);
+        } catch (ActivityNotFoundException ex) {
+            android.widget.Toast.makeText(this, g("Sélecteur de dossiers indisponible", "Folder picker unavailable"),
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Maps a local storage tree URI ("primary:Games" or "1234-ABCD:Games") to its file path. */
+    private static File treeUriToFile(Uri uri) {
+        if (uri == null || !"com.android.externalstorage.documents".equals(uri.getAuthority())) return null;
+        String id = DocumentsContract.getTreeDocumentId(uri);
+        int colon = id.indexOf(':');
+        if (colon < 0) return null;
+        String volume = id.substring(0, colon), path = id.substring(colon + 1);
+        File root = "primary".equalsIgnoreCase(volume) ? Environment.getExternalStorageDirectory() : new File("/storage/" + volume);
+        return path.isEmpty() ? root : new File(root, path);
+    }
+
+    private void onParentFolderChosen(File folder) {
+        Destination chosen = pendingDestination;
+        pendingDestination = null;
+        if (folder == null) {
+            lastImportMessage = g("Ce dossier n’est pas un dossier local du téléphone.", "This folder is not a local device folder.");
+            showMissingDataScreen();
+            return;
+        }
+        if (UnrealGold.isGoldData(folder) && UnrealDataPaths.hasRequiredData(folder)) {
+            // A valid Unreal Gold folder is used in place, without copying.
+            dialog().setTitle(g("Unreal Gold trouvé", "Unreal Gold found"))
+                    .setMessage(g("Les fichiers de ce dossier seront utilisés directement.\n", "The files in this folder will be used directly.\n")
+                            + folder.getAbsolutePath())
+                    .setPositiveButton(g("Utiliser ces fichiers", "Use these files"), (d, which) -> {
+                        UnrealGold.remember(this, folder, null);
+                        launchGold(folder);
+                    })
+                    .setNegativeButton(android.R.string.cancel, null).show();
+            return;
+        }
+        if (chosen == null) {
+            lastImportMessage = g("Aucun fichier Unreal Gold (version 226) dans : ", "No Unreal Gold (version 226) files in: ")
+                    + folder.getAbsolutePath();
+            showMissingDataScreen();
+            return;
+        }
+        chooseDestinationFolder(folder, chosen);
+    }
+
+    private boolean isAppOwnedFolder(File folder) {
+        String path = folder.getAbsolutePath();
+        return path.contains("/Android/data/" + getPackageName()) || path.startsWith(getFilesDir().getAbsolutePath());
+    }
+
+    private void chooseDestinationFolder(File volume, Destination chosen) {
+        // An empty personal folder is used as is; otherwise a new sub-folder
+        // keeps the existing files untouched.
+        String[] content = volume.list();
+        if (!isAppOwnedFolder(volume) && content != null && content.length == 0) {
+            dialog().setTitle(g("Installer dans ce dossier ?", "Install into this folder?"))
+                    .setMessage(g("Le dossier est vide. Le jeu y sera installé directement et conservé si l’application est désinstallée.\n",
+                            "The folder is empty. The game will be installed directly in it and kept if the app is uninstalled.\n")
+                            + volume.getAbsolutePath())
+                    .setPositiveButton(g("Installer ici", "Install here"), (d, which) -> chosen.use(volume))
+                    .setNeutralButton(g("Nouveau sous-dossier", "New sub-folder"), (d, which) -> chooseSubfolderName(volume, chosen))
+                    .setNegativeButton(android.R.string.cancel, null).show();
+            return;
+        }
+        chooseSubfolderName(volume, chosen);
+    }
+
+    private void chooseSubfolderName(File volume, Destination chosen) {
+        EditText name = new EditText(this);
+        name.setSingleLine(true);
+        String proposed = "UnrealGold";
+        for (int index = 2; new File(volume, proposed).exists() && index < 1000; index++) proposed = "UnrealGold-" + index;
+        name.setText(proposed);
+        AlertDialog nameDialog = dialog()
+                .setTitle(g("Nom du nouveau dossier", "New folder name"))
+                .setMessage((isAppOwnedFolder(volume)
+                        ? g("Dossier de l’application, supprimé si elle est désinstallée. ", "App folder, removed when the app is uninstalled. ")
+                        : g("Dossier personnel, conservé si l’application est désinstallée. ", "Personal folder, kept if the app is uninstalled. "))
+                        + g("Environ 680 Mo à télécharger et 1,3 Go libres nécessaires.\n", "About 680 MB to download and 1.3 GB free required.\n")
+                        + volume.getAbsolutePath())
+                .setView(name).setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(g("Installer", "Install"), null).create();
+        nameDialog.setOnShowListener(ignored -> nameDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String folder = name.getText().toString().trim();
+            if (folder.isEmpty() || folder.equals(".") || folder.equals("..")
+                    || folder.contains("/") || folder.contains("\\") || folder.contains(":")) {
+                name.setError(g("Nom de dossier invalide", "Invalid folder name"));
+                return;
+            }
+            File destination = new File(volume, folder);
+            if (destination.exists()) {
+                name.setError(g("Ce dossier existe déjà ; choisissez un nouveau nom", "Folder already exists; choose a new name"));
+                return;
+            }
+            nameDialog.dismiss();
+            chosen.use(destination);
+        }));
+        nameDialog.show();
+    }
+
+    private void installGold(File destination, String language) {
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        showBusyScreen(g("Installation d’Unreal Gold", "Unreal Gold installation"),
+                g("Préparation du téléchargement officiel OldUnreal…", "Preparing the official OldUnreal download…"));
+        final TextView progressText = busyMessage;
+        ((LinearLayout) progressText.getParent()).addView(goldButton(
+                g("Annuler l’installation", "Cancel installation"), this::confirmCancelGold));
+        final String downloading = g("Téléchargement", "Downloading");
+        final String extracting = g("Extraction", "Extracting");
+        goldInstallerThread = new Thread(() -> {
+            Exception failure = null;
+            try {
+                UnrealGold.install(new File(getCacheDir(), "oldunreal-installer"), destination, language, (phase, percent) ->
+                        runOnUiThread(() -> progressText.setText((phase.startsWith("Unreal Gold · ")
+                                ? extracting + " " + percent + " %\n" + phase.substring("Unreal Gold · ".length())
+                                : downloading + " Unreal Gold : " + percent + " %"))));
+                UnrealGold.remember(this, destination, language);
+            } catch (Exception error) {
+                failure = error;
+                android.util.Log.e(UnrealDataPaths.TAG_IMPORT, "Unreal Gold install failed", error);
+            }
+            final Exception error = failure;
+            final boolean cancelled = Thread.currentThread().isInterrupted() || error instanceof java.io.InterruptedIOException;
+            runOnUiThread(() -> {
+                goldInstallerThread = null;
+                getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                if (error == null) {
+                    launchGold(destination);
+                    return;
+                }
+                lastImportMessage = cancelled ? g("Installation annulée.", "Installation cancelled.")
+                        : g("Installation interrompue : ", "Installation stopped: ") + error.getMessage();
+                showMissingDataScreen();
+            });
+        }, "UnrealGoldInstaller");
+        goldInstallerThread.start();
     }
 
     private void showBusyScreen(String titleText, String messageText) {
@@ -306,6 +633,7 @@ public class MainActivity extends Activity {
         msg.setGravity(Gravity.CENTER);
         msg.setPadding(0, 24, 0, 24);
         body.addView(msg);
+        busyMessage = msg;
 
         setContentView(body);
         hideSystemUi();
@@ -355,6 +683,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_SELECT_PARENT_FOLDER) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) onParentFolderChosen(treeUriToFile(data.getData()));
+            else pendingDestination = null;
+            return;
+        }
         if (requestCode != REQ_SELECT_UNREAL_FOLDER && requestCode != REQ_SELECT_UNREAL_ZIP) return;
 
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {

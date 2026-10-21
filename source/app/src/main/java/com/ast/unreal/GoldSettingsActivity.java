@@ -1,0 +1,126 @@
+package com.ast.unreal;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.Spinner;
+import android.widget.TextView;
+
+/** Android settings opened from the gear of the Unreal Gold game screen. */
+public final class GoldSettingsActivity extends Activity {
+    static final int OPEN = 3520, RESTART = 3521, DATA = 3522;
+    private static final String[] NAMES = {"English", "Français", "Deutsch", "Español", "Italiano"};
+    private static final String[] CODES = {"int", "frt", "det", "est", "itt"};
+    private String selectedLanguage;
+    private boolean french;
+
+    private String text(String fr, String en) { return french ? fr : en; }
+    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density + .5f); }
+
+    private TextView label(String value, int size) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(0xffe4dac5);
+        view.setPadding(0, dp(12), 0, dp(8));
+        return view;
+    }
+
+    private Button button(String value, Runnable action) {
+        Button button = new Button(this);
+        button.setText(value);
+        button.setAllCaps(false);
+        button.setOnClickListener(v -> action.run());
+        return button;
+    }
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        french = "fr".equalsIgnoreCase(getResources().getConfiguration().locale.getLanguage());
+        selectedLanguage = state == null ? UnrealGold.language(this) : state.getString("language", "int");
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(24), dp(12), dp(24), dp(16));
+
+        body.addView(label(text("Langue du jeu", "Game language"), 17));
+        Spinner language = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, NAMES);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        language.setAdapter(adapter);
+        language.setSelection(Math.max(0, java.util.Arrays.asList(CODES).indexOf(selectedLanguage)));
+        language.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedLanguage = CODES[position]; }
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        body.addView(language);
+        body.addView(label(text("Les voix et textes doivent être présents dans les fichiers du jeu ; sinon l’anglais est utilisé.",
+                "Voices and texts must be present in the game data; otherwise English is used."), 14));
+        body.addView(button(text("Appliquer la langue et relancer le jeu…", "Apply language and restart…"), () ->
+                confirm(text("Quitter la partie et relancer le jeu avec cette langue ?", "Leave the game and restart with this language?"), RESTART)));
+
+        body.addView(label(text("Emplacement du jeu", "Game location"), 17));
+        TextView path = label(getIntent().getStringExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT), 13);
+        path.setTextIsSelectable(true);
+        body.addView(path);
+        body.addView(button(text("Changer de fichiers ou d’emplacement…", "Change game data or location…"), () ->
+                confirm(text("Quitter la partie et ouvrir le gestionnaire de fichiers du jeu ? Les fichiers actuels seront conservés.",
+                        "Leave the game and open the game data manager? Current files will be preserved."), DATA)));
+        body.addView(button(text("Retour au jeu", "Return to game"), this::finish));
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.addView(body);
+        LinearLayout outer = new LinearLayout(this);
+        outer.setOrientation(LinearLayout.VERTICAL);
+        outer.setBackgroundColor(0xff181416);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(24), 0, dp(24), 0);
+        header.addView(label(text("Réglages Android", "Android settings"), 22), new LinearLayout.LayoutParams(0, -2, 1));
+        Button topBack = button(text("Retour au jeu", "Return to game"), this::finish);
+        header.addView(topBack);
+        outer.addView(header);
+        outer.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        setContentView(outer);
+        topBack.requestFocus();
+    }
+
+    private void confirm(String message, int result) {
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK).setMessage(message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(text("Continuer", "Continue"), (dialog, which) -> {
+                    if (result == RESTART) UnrealGold.setLanguage(this, selectedLanguage);
+                    setResult(result);
+                    finish();
+                }).show();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        state.putString("language", selectedLanguage);
+        super.onSaveInstanceState(state);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_B) {
+            if (event.getAction() == KeyEvent.ACTION_UP) onBackPressed();
+            return true;
+        }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BUTTON_A) {
+            return super.dispatchKeyEvent(new KeyEvent(event.getDownTime(), event.getEventTime(), event.getAction(),
+                    KeyEvent.KEYCODE_DPAD_CENTER, event.getRepeatCount()));
+        }
+        return super.dispatchKeyEvent(event);
+    }
+}
