@@ -123,6 +123,19 @@ public final class GoldSettingsActivity extends Activity {
                     "Size adapts to the resolution. Both settings apply when you return to the game."), 14));
         }
 
+        body.addView(label(text("Aide à la visée (manette)", "Aim assist (controller)"), 17));
+        Spinner aim = spinner(new String[]{text("Désactivée", "Off"), text("Légère", "Light"),
+                text("Moyenne", "Medium"), text("Forte", "Strong")}, UnrealGold.aimAssist(this));
+        aim.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
+                UnrealGold.aimAssist(GoldSettingsActivity.this, position);
+            }
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        body.addView(aim);
+        body.addView(label(text("Suivi progressif des ennemis proches du viseur. Un mouvement franc du stick reprend la main. Appliqué au retour au jeu.",
+                "Gently tracks enemies near the crosshair. A firm stick movement overrides it. Applies when you return to the game."), 14));
+
         body.addView(label(text("Confort de la caméra", "Camera comfort"), 17));
         TextView rollLabel = label("", 15);
         body.addView(rollLabel);

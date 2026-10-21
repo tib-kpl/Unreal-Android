@@ -2998,65 +2998,8 @@ UBOOL UNSDLViewport::CauseInputEvent( INT iKey, EInputAction Action, FLOAT Delta
 	unguard;
 }
 
-#ifdef __ANDROID__
-// ANDROID_SOFT_KEYBOARD_V5_MENUTYPING_HELPER
-//
-// Android soft keyboard policy:
-// UE1 menu text input uses Console state 'MenuTyping'.
-// Keep the Android IME active only while that state is active.
-static UBOOL UE1Android_IsConsoleMenuTyping( UObject* ConsoleObject )
-{
-	if( !ConsoleObject )
-		return 0;
-
-	if( !ConsoleObject->GetMainFrame() )
-		return 0;
-
-	if( !ConsoleObject->GetMainFrame()->StateNode )
-		return 0;
-
-	return ConsoleObject->GetMainFrame()->StateNode->GetFName() == "MenuTyping";
-}
-
-static void UE1Android_UpdateSoftKeyboardForMenuTyping( UObject* ConsoleObject, INT ViewSizeX, INT ViewSizeY )
-{
-	static UBOOL bKeyboardWanted = 0;
-	static Uint32 LastStartTicks = 0;
-
-	const UBOOL bWantKeyboard = UE1Android_IsConsoleMenuTyping( ConsoleObject );
-	const Uint32 NowTicks = SDL_GetTicks();
-
-	if( bWantKeyboard )
-	{
-		SDL_Rect TextRect;
-		TextRect.x = 0;
-		TextRect.y = ( ViewSizeY > 0 ) ? ( ( ViewSizeY * 2 ) / 3 ) : 0;
-		TextRect.w = ( ViewSizeX > 0 ) ? ViewSizeX : 1;
-		TextRect.h = ( ViewSizeY > 3 ) ? ( ViewSizeY / 3 ) : 1;
-		SDL_SetTextInputRect( &TextRect );
-
-		// Keep-alive: some Android keyboards ignore a one-shot StartTextInput
-		// if focus was not fully settled yet.
-		if( !bKeyboardWanted || !SDL_IsTextInputActive() || ( NowTicks - LastStartTicks ) > 750 )
-		{
-			SDL_StartTextInput();
-			LastStartTicks = NowTicks;
-		}
-
-		bKeyboardWanted = 1;
-	}
-	else
-	{
-		if( bKeyboardWanted || SDL_IsTextInputActive() )
-		{
-			SDL_StopTextInput();
-		}
-
-		bKeyboardWanted = 0;
-		LastStartTicks = 0;
-	}
-}
-#endif
+#include "AndroidMenuText.inl"
+#include "AndroidAimAssist.inl"
 
 UBOOL UNSDLViewport::TickInput()
 {
@@ -3072,7 +3015,7 @@ UBOOL UNSDLViewport::TickInput()
 #endif
 #ifdef __ANDROID__
 	// ANDROID_SOFT_KEYBOARD_V5_MENUTYPING_TICK
-	UE1Android_UpdateSoftKeyboardForMenuTyping( (UObject*)Console, SizeX, SizeY );
+	AndroidMenuUpdateText((UObject*)Console);
 #endif
 #if PLATFORM_ANDROID
 	AndroidUpdateSoftKeyboardTimeout( CurTime );
@@ -3236,6 +3179,20 @@ UBOOL UNSDLViewport::TickInput()
 				// signal to client and remember set a flag just in case
 				QuitRequested = true;
 				return true;
+#if defined(__ANDROID__)
+            case SDL_CONTROLLERDEVICEREMOVED:
+                AndroidAimController = 0;
+                AndroidAimPrevious = NULL;
+                AndroidAimStick = 0.f;
+                break;
+            case SDL_USEREVENT + 0x22c:
+                AndroidAimLevel = Clamp<INT>(Ev.user.code, 0, 3);
+                AndroidAimPrevious = NULL;
+                break;
+            case SDL_USEREVENT + 0x22b:
+                AndroidMenuApplyText((UObject*)Console, (FAndroidMenuTextResult*)Ev.user.data1);
+                break;
+#endif
 			case SDL_TEXTINPUT:
 #if PLATFORM_ANDROID
 				AndroidKeepSoftKeyboardAlive( this, 90.0f );
@@ -3249,6 +3206,7 @@ UBOOL UNSDLViewport::TickInput()
 				}
 				break;
 			case SDL_KEYDOWN:
+                AndroidAimController = 0;
 #if PLATFORM_ANDROID
 				if( Ev.key.keysym.sym == SDLK_RETURN || Ev.key.keysym.sym == SDLK_ESCAPE )
 				{
@@ -3291,6 +3249,7 @@ UBOOL UNSDLViewport::TickInput()
 				}
 				break;
 			case SDL_CONTROLLERBUTTONDOWN:
+                AndroidAimController = 1;
 			case SDL_CONTROLLERBUTTONUP:
 				{
 #if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
@@ -3380,6 +3339,11 @@ UBOOL UNSDLViewport::TickInput()
 				break;
 #endif
 			case SDL_CONTROLLERAXISMOTION:
+                AndroidAimController = 1;
+                if(Ev.caxis.axis==SDL_CONTROLLER_AXIS_RIGHTX || Ev.caxis.axis==SDL_CONTROLLER_AXIS_RIGHTY) {
+                    AndroidAimSdlAxes[Ev.caxis.axis-SDL_CONTROLLER_AXIS_RIGHTX] = Ev.caxis.value/32767.f;
+                    AndroidAimStick = Max(Abs(AndroidAimSdlAxes[0]),Abs(AndroidAimSdlAxes[1]));
+                }
 				{
 #if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
 					if( bAndroidNativeController )
@@ -3438,6 +3402,7 @@ UBOOL UNSDLViewport::TickInput()
 				break;
 #endif
 			case SDL_MOUSEMOTION:
+                AndroidAimController = 0;
 				{
 #if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
 					// UNREAL_ANDROID_CHROMEOS_MOUSE_CAPTURE_V205F1
@@ -3554,7 +3519,9 @@ UBOOL UNSDLViewport::TickInput()
 		for( INT EventIndex=0; EventIndex<NativeCount; ++EventIndex )
 		{
 			const FAndroidNativeControllerEvent& NE = NativeEvents[EventIndex];
-			const UBOOL bRetroTouchEventV216 = NE.DeviceId == -215; // UNREAL_ANDROID_RETROTOUCH_NO_CONTROLLER_V216
+			const UBOOL bRetroTouchEventV216 = NE.DeviceId == -215;
+            AndroidAimController = !bRetroTouchEventV216;
+            if(NE.Type == 2) AndroidAimStick = Max(Abs(NE.AxisZ), Abs(NE.AxisRZ)); // UNREAL_ANDROID_RETROTOUCH_NO_CONTROLLER_V216
 			const UBOOL bRetroTouchIsInUIV219 = AndroidRetroTouchUiModeV215 == 1; // UNREAL_ANDROID_RETROTOUCH_MENU_OBJECT_V219
 			const UBOOL bEventIsInUIV219 = bRetroTouchEventV216 ? bRetroTouchIsInUIV219 : bIsInUI;
 			if( !bRetroTouchEventV216 && !bAndroidNativeController )
@@ -4031,6 +3998,9 @@ UBOOL UNSDLViewport::TickInput()
 		}
 	}
 
+#if defined(__ANDROID__)
+    AndroidApplyAimAssist(this, DeltaTime);
+#endif
 	InputUpdateTime = CurTime;
 
 	return QuitRequested;

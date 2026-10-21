@@ -30,7 +30,18 @@ public class Unreal226Activity extends SDLActivity {
     private File root;
     private View settingsGear;
     private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
+    private static native void nativeAimAssistSettings(int level);
     private static native void nativeCameraRollSettings(float amount);
+    private static native void nativeMenuTextInput(int request, String text, boolean accepted);
+
+    // Called by the engine on entry into the classic console's MenuTyping state.
+    public static void showMenuTextInput(int request, String text, int limit) {
+        android.content.Context context = SDLActivity.getContext();
+        if (context instanceof Unreal226Activity) {
+            GameTextInput.show((Unreal226Activity) context, request, text, limit,
+                    Unreal226Activity::nativeMenuTextInput);
+        }
+    }
     private GoldTouchBridge touchBridge;
     private GoldControllerInput controllerInput;
 
@@ -104,6 +115,7 @@ public class Unreal226Activity extends SDLActivity {
     protected void onResume() {
         super.onResume();
         nativeCameraRollSettings(UnrealGold.cameraRoll(this));
+        nativeAimAssistSettings(UnrealGold.aimAssist(this));
         if (controllerInput != null) nativeGoldDisplaySettings(UnrealGold.interfaceSize(this), UnrealGold.gamma(this));
         if (touchBridge != null) touchBridge.start();
         scheduleImmersiveRefresh();
@@ -213,6 +225,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     protected void onDestroy() {
+        GameTextInput.close(this);
         if (controllerInput != null) controllerInput.destroy();
         boolean cleanProcessExit = isFinishing() && !isChangingConfigurations();
         super.onDestroy();
@@ -240,6 +253,7 @@ public class Unreal226Activity extends SDLActivity {
     }
 
     private void hideSystemUi() {
+        if (GameTextInput.isOpen(this)) return;
         // SDL's window-style command can set FORCE_NOT_FULLSCREEN after onCreate.
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);

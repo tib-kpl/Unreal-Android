@@ -124,6 +124,14 @@ working unchanged.
   other personal R3 actions and later remapping.
 - **Gold player view** – vertical look retains the original full range, and
   crouching lowers the viewpoint instead of only slowing movement.
+- **Text entry** – classic menu fields in both engines open a visible Android
+  editor above the keyboard, with Done/A to confirm and Cancel/B to discard.
+- **Controller aim assistance** – Off, Light, Medium and Strong tracking levels
+  in Android settings, shared by v200 and Gold. Assistance follows visible
+  hostile NPCs near the crosshair and yields to a firm stick movement.
+- **Incompatible game files** – patched PC data such as 227 is detected before
+  launch. A message offers to download/install the original Gold 226 files in
+  a separate location, preserving the existing folder and saves.
 - **Camera comfort** – sideways tilt defaults to 25% of the original effect.
   Android settings offer 0–100%, including complete disable, in both engines.
   Weapon and inventory cycling actions are exchanged once on physical pads;

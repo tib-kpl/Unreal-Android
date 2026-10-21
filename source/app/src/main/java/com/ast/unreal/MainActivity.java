@@ -284,7 +284,26 @@ public class MainActivity extends Activity {
         }
     }
 
+    private boolean rejectUnsupportedGold(File root) {
+        if (!UnrealGold.isGoldData(root) || UnrealGold.isSupportedGoldData(root)) return false;
+        lastImportMessage = g("Ce dossier contient une version patchée ou incompatible (par exemple 227). Ce port nécessite les fichiers Unreal Gold 226 d’origine. Utilisez un autre dossier ou installez Gold 226 avec le bouton de téléchargement. Les fichiers et sauvegardes existants sont conservés.\n",
+                "This folder contains patched or incompatible data (such as 227). This port requires original Unreal Gold 226 files. Choose another folder or install Gold 226 with the download button. Existing files and saves are preserved.\n")
+                + root.getAbsolutePath();
+        showMissingDataScreen();
+        dialog().setTitle(g("Fichiers du jeu incompatibles", "Incompatible game files"))
+                .setMessage(lastImportMessage)
+                .setPositiveButton(g("Télécharger et installer Gold 226", "Download and install Gold 226"),
+                        (d, which) -> chooseGoldLanguage())
+                .setNegativeButton(g("Choisir un autre dossier", "Choose another folder"), (d, which) -> {
+                    pendingDestination = null;
+                    requestFileAccess(this::openParentFolderPicker);
+                })
+                .setNeutralButton(android.R.string.cancel, null).show();
+        return true;
+    }
+
     private void launchGold(File root) {
+        if (rejectUnsupportedGold(root)) return;
         if ("frt".equals(UnrealGold.language(this)) && UnrealDataPaths.needsGoldFrenchLocalization(root)) {
             showBusyScreen("Traduction française d’Unreal Gold",
                     "Téléchargement des textes manquants (traducteur, objectifs, menus)…");
@@ -409,7 +428,7 @@ public class MainActivity extends Activity {
 
         Button focus = null;
         final File gold = UnrealGold.rememberedRoot(this);
-        if (gold != null) {
+        if (gold != null && UnrealGold.isSupportedGoldData(gold)) {
             focus = goldButton(g("Lancer Unreal Gold", "Start Unreal Gold") + "\n" + gold.getAbsolutePath(), () -> launchGold(gold));
             body.addView(focus);
         }
@@ -602,6 +621,7 @@ public class MainActivity extends Activity {
             showMissingDataScreen();
             return;
         }
+        if (rejectUnsupportedGold(folder)) return;
         if (UnrealDataPaths.hasRequiredData(folder) && (chosen == null || UnrealGold.isGoldData(folder))) {
             // Both engines require writable local paths for configs and saves.
             if (!folder.canWrite() || !new File(folder, "System").canWrite()) {

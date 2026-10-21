@@ -4746,10 +4746,14 @@ UBOOL UNSDLViewport::CauseInputEvent( INT iKey, EInputAction Action, FLOAT Delta
 	unguard;
 }
 
+#include "AndroidMenuText.inl"
+#include "AndroidAimAssist.inl"
+
 UBOOL UNSDLViewport::TickInput()
 {
 	guard(UNSDLViewport::TickInput);
 	GUT99AndroidInputViewport = this;
+	AndroidMenuUpdateText((UObject*)Console);
 
 	SDL_Event Ev;
 	INT Tmp;
@@ -4989,6 +4993,9 @@ while( SDL_PollEvent( &Ev ) )
                 break;
             }
             case SDL_CONTROLLERDEVICEREMOVED:
+                AndroidAimController = 0;
+                AndroidAimPrevious = NULL;
+                AndroidAimStick = 0.f;
             {
                 // For REMOVED, cdevice.which is the SDL joystick instance id.
 #if UNREAL_GOLD_226
@@ -5011,6 +5018,15 @@ while( SDL_PollEvent( &Ev ) )
 				// signal to client and remember set a flag just in case
 				QuitRequested = true;
 				return true;
+#if defined(__ANDROID__)
+            case SDL_USEREVENT + 0x22c:
+                AndroidAimLevel = Clamp<INT>(Ev.user.code, 0, 3);
+                AndroidAimPrevious = NULL;
+                break;
+            case SDL_USEREVENT + 0x22b:
+                AndroidMenuApplyText((UObject*)Console, (FAndroidMenuTextResult*)Ev.user.data1);
+                break;
+#endif
 			case SDL_TEXTINPUT:
 #if defined(__ANDROID__)
                 if( GUT99V79OuyaLikeDevice && GUT99AndroidImeOpenV79 )
@@ -5044,6 +5060,7 @@ while( SDL_PollEvent( &Ev ) )
 #endif
 				break;
 			case SDL_KEYDOWN:
+                AndroidAimController = 0;
 			case SDL_KEYUP:
 #if defined(__ANDROID__)
 				if( Ev.type == SDL_KEYDOWN && GUT99AndroidImeOpenV79 )
@@ -5254,6 +5271,7 @@ while( SDL_PollEvent( &Ev ) )
             }
 #endif
 			case SDL_CONTROLLERBUTTONDOWN:
+                AndroidAimController = 1;
 #if UNREAL_GOLD_226
                 // Once Android owns the pad, suppress *all* SDL copies,
                 // including raw joysticks SDL failed to classify as controllers.
@@ -5332,6 +5350,11 @@ while( SDL_PollEvent( &Ev ) )
 				}
 				break;
 			case SDL_CONTROLLERAXISMOTION:
+                AndroidAimController = 1;
+                if(Ev.caxis.axis==SDL_CONTROLLER_AXIS_RIGHTX || Ev.caxis.axis==SDL_CONTROLLER_AXIS_RIGHTY) {
+                    AndroidAimSdlAxes[Ev.caxis.axis-SDL_CONTROLLER_AXIS_RIGHTX] = Ev.caxis.value/32767.f;
+                    AndroidAimStick = Max(Abs(AndroidAimSdlAxes[0]),Abs(AndroidAimSdlAxes[1]));
+                }
 #if UNREAL_GOLD_226
                 // Once Android owns the pad, suppress *all* SDL copies,
                 // including raw joysticks SDL failed to classify as controllers.
@@ -5664,6 +5687,7 @@ while( SDL_PollEvent( &Ev ) )
 #if UNREAL_GOLD_226
             case SDL_USEREVENT + 0x226:
             {
+                AndroidAimController = 1;
                 GoldPadDirectAndroid=1;
                 GoldPadSyncMenu(this);
                 const INT Key=Ev.user.code;
@@ -5680,6 +5704,7 @@ while( SDL_PollEvent( &Ev ) )
             }
             case SDL_USEREVENT + 0x227:
             {
+                AndroidAimController = 1;
                 GoldPadDirectAndroid=1;
                 GoldPadSyncMenu(this);
                 const INT Axis=Ev.user.code;
@@ -5729,6 +5754,7 @@ while( SDL_PollEvent( &Ev ) )
                 break;
 #endif
 case SDL_MOUSEMOTION:
+                AndroidAimController = 0;
 				if( !SDL_GetRelativeMouseMode() )
 				{
 					// If cursor isn't captured, just do MousePosition.
@@ -5868,6 +5894,10 @@ case SDL_MOUSEMOTION:
 	UT99AndroidPersistAutoAimV78( this );
 #endif
 
+#if defined(__ANDROID__)
+    AndroidAimStick = Max(Abs(GoldPadAxes[SDL_CONTROLLER_AXIS_RIGHTX]), Abs(GoldPadAxes[SDL_CONTROLLER_AXIS_RIGHTY]));
+    AndroidApplyAimAssist(this, DeltaTime);
+#endif
 	InputUpdateTime = CurTime;
 
 	return QuitRequested;

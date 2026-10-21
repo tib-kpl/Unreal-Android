@@ -97,6 +97,41 @@ On the Thor, a held right stick reached the original bounds (-90 to about
 to standing on release. The same native path handles existing saves and both
 Unreal and Return to Na Pali.
 
+## Menu text entry
+
+The classic menus in both engines open a visible Android text editor above the
+soft keyboard for player/team names, server addresses, save titles and other
+`MenuTyping` fields. Confirm with the keyboard's Done action, the dialog button
+or controller A; controller B/Cancel restores the old value. Cursor movement,
+selection and deletion are handled by Android. The game receives the confirmed
+value on its own thread and retains each field's original length rules.
+Immersive-mode refresh is suspended while this editor is open.
+
+## Controller aim assistance
+
+The Android settings gear offers **Off / Light / Medium / Strong**, shared by
+v200 and Gold, defaulting to Medium. This adds camera tracking of hostile NPCs
+near the crosshair, alongside the original game's projectile auto-aim. It uses
+2.5/4/6 degree acquisition cones, progressively faster smoothing and bounded
+turn speeds. It ignores allies, neutral creatures, dead/hidden targets and
+obstacles, and releases when the right stick exceeds 65% travel. Mouse/keyboard
+input, menus, third-person and spectator views suspend tracking.
+
+Thor checks in both engines compared all four levels on the same two-degree
+offset, followed a moving hostile, and checked stick override, friendly/dead/
+hidden targets and an enemy behind a wall. Physical Bluetooth testing is still
+pending; it uses the same Android controller normalization.
+
+## Incompatible PC data
+
+Before launching Gold or accepting an existing folder, both `Core.u` and
+`Engine.u` must have retail 226 headers (package version 68, licensee 0).
+The previous broad 68+ detection accepted OldUnreal 227 packages and then
+failed on `Core.AnyProperty`. The launcher now explains the incompatibility
+and offers **Download and install Gold 226** or another folder. The normal
+installer selects the language and a new/empty destination; it preserves the
+incompatible PC installation and its saves.
+
 ## Camera comfort and full screen
 
 Android settings expose sideways camera tilt from 0% (disabled) to 100%

@@ -63,6 +63,12 @@ final class UnrealGold {
         }
     }
 
+    static boolean isSupportedGoldData(File root) {
+        File system = new File(root, "System");
+        return GoldDataVersion.supports(UnrealDataPaths.findSystemFile(system, "Core.u"),
+                UnrealDataPaths.findSystemFile(system, "Engine.u"));
+    }
+
     static File rememberedRoot(Context context) {
         String path = prefs(context).getString(KEY_ROOT, null);
         File root = path == null ? null : new File(path);
@@ -146,6 +152,15 @@ final class UnrealGold {
 
     static void interfaceSize(Context context, float value) {
         prefs(context).edit().putFloat("interface_size", value).commit();
+    }
+
+    /** 0 off, 1 light, 2 medium, 3 strong. Shared by both engines. */
+    static int aimAssist(Context context) {
+        return Math.max(0, Math.min(3, prefs(context).getInt("aim_assist", 2)));
+    }
+
+    static void aimAssist(Context context, int level) {
+        prefs(context).edit().putInt("aim_assist", Math.max(0, Math.min(3, level))).commit();
     }
 
     static float cameraRoll(Context context) {

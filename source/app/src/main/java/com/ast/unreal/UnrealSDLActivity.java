@@ -27,7 +27,18 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     private UnrealRetroTouchBridge retroTouchBridgeV215; // UNREAL_ANDROID_RETROTOUCH_V215
     private View settingsGear;
     private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
+    private static native void nativeAimAssistSettings(int level);
     private static native void nativeCameraRollSettings(float amount);
+    private static native void nativeMenuTextInput(int request, String text, boolean accepted);
+
+    // Called by the engine on entry into the classic console's MenuTyping state.
+    public static void showMenuTextInput(int request, String text, int limit) {
+        android.content.Context context = SDLActivity.getContext();
+        if (context instanceof UnrealSDLActivity) {
+            GameTextInput.show((UnrealSDLActivity) context, request, text, limit,
+                    UnrealSDLActivity::nativeMenuTextInput);
+        }
+    }
     private long retroTouchConfigReadMsV215;
     private boolean retroTouchEnabledCacheV215 = true;
 
@@ -204,6 +215,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     protected void onDestroy() {
+        GameTextInput.close(this);
         final boolean cleanProcessExit = isFinishing() && !isChangingConfigurations();
         if (inputManager != null) {
             inputManager.unregisterInputDeviceListener(this);
@@ -240,6 +252,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     protected void onResume() {
         super.onResume();
         nativeCameraRollSettings(UnrealGold.cameraRoll(this));
+        nativeAimAssistSettings(UnrealGold.aimAssist(this));
         resetAndroidNativeControllerState(); // ANDROID_CONTROLLER_NATIVE_RESET_V88
         hideSystemUi();
         scheduleImmersiveRefresh();
@@ -868,6 +881,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     }
 
     private void hideSystemUi() {
+        if (GameTextInput.isOpen(this)) return;
         // SDL's window-style command can set FORCE_NOT_FULLSCREEN after onCreate.
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
