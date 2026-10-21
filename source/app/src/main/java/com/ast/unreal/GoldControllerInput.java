@@ -60,7 +60,7 @@ final class GoldControllerInput implements InputManager.InputDeviceListener {
         if (key != 82 && !(key >= 96 && key <= 110 && key != 98 && key != 101)
                 && !(key >= 19 && key <= 22)) return false;
         if (event.getAction() != KeyEvent.ACTION_DOWN && event.getAction() != KeyEvent.ACTION_UP) return true;
-        if (event.getRepeatCount() != 0) return true;
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() != 0) return true;
         // Many Bluetooth pads report both a digital key and an analogue trigger.
         if (key == 104 || key == 105) {
             InputDevice device = event.getDevice();

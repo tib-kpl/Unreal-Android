@@ -83,6 +83,28 @@ A confirmation into the playable DuskFalls map. Gold save/load was checked on ar
 the configured search paths, and POSIX save URLs are parsed as local files
 instead of remote hosts (which previously attempted to load `Index.unr`).
 
+## Audio and menu stability
+
+Gold's Windows Galaxy audio configuration is migrated once into
+`[Audio.GenericAudioSubsystem]`. Android otherwise opened an 8000 Hz mono
+device with zero effect voices, zero volume and digital music disabled.
+The migration preserves Galaxy volumes/rate and any working Android settings,
+including deliberate mute. Existing all-zero native defaults are repaired.
+Music and menu effects were verified separately with non-silent PCM output;
+the Thor uses 22050 Hz stereo and 16 effects voices from its Gold settings.
+
+Controller input uses exclusive Android ownership after the first native event,
+as in v200, suppressing even SDL joystick copies that lack a controller mapping.
+Menu sticks must return to centre after opening a menu. Stick and D-pad held
+states are combined independently, and repeated key-down filtering always
+preserves key-up. Holding a stick while opening a menu, combining stick/D-pad
+directions, then leaving the controller idle were checked on the Thor. The
+reported intermittent scrolling still needs observation in ordinary play.
+
+`tools/check_apk_contents.py` verifies both engines and all five required native
+libraries in each ABI, plus the Gold console package. Run it on debug as well
+as release APKs before installing them. It also runs in CI before signing.
+
 ## Gold mesh compatibility
 
 Gold 226 actors do not declare the v400 LODBias property. Its native field

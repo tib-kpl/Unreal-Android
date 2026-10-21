@@ -24,7 +24,7 @@ final class GoldControllerProfile {
         return Unreal226Config.upsert(user, "Android", "ControllerProfile", "200");
     }
 
-    private static Map<String, String> section(String text, String section) {
+    static Map<String, String> section(String text, String section) {
         Map<String, String> values = new LinkedHashMap<>();
         boolean active = false;
         for (String raw : text.split("\\r?\\n")) {

@@ -46,6 +46,17 @@ public class GoldConfigTest {
         paths = Unreal226Config.fixPathSeparators(paths);
         check(paths.contains("Paths=../Maps/*.unr") && paths.contains("SavePath=../Save"), "Windows paths were not normalized");
         check(paths.contains("Name=Keep\\This"), "Unrelated value was changed");
-        System.out.println("PASS: " + verified + " v200 bindings, custom bindings, sensitivity, repeat launches and path migration");
+        String pcAudio="[Galaxy.GalaxyAudioSubsystem]\nMusicVolume=160\nSoundVolume=200\nOutputRate=22050Hz\nEffectsChannels=16\nUseStereo=True\nUseDigitalMusic=True\n";
+        String audio=GoldAudioProfile.migrate(pcAudio);
+        check("16".equals(value(audio,"Channels")), "No effect voices");
+        check(audio.contains("[Audio.GenericAudioSubsystem]"), "Missing Android audio section");
+        check(audio.equals(GoldAudioProfile.migrate(audio)), "Audio migration repeats");
+        String silent=pcAudio+"[Audio.GenericAudioSubsystem]\nChannels=0\nMusicVolume=0\nSoundVolume=0\nUseStereo=False\nUseDigitalMusic=False\nOutputRate=8000Hz\n";
+        String repaired=GoldAudioProfile.migrate(silent);
+        check(repaired.contains("Channels=16") && !repaired.contains("Channels=0"), "Silent native defaults not repaired");
+        String muted=pcAudio+"[Audio.GenericAudioSubsystem]\nChannels=16\nMusicVolume=0\nSoundVolume=0\n";
+        check(GoldAudioProfile.migrate(muted).contains("MusicVolume=0"), "Intentional mute overwritten");
+        check(GoldAudioProfile.migrate(muted).contains("SoundVolume=0"), "Intentional effects mute overwritten");
+        System.out.println("PASS: " + verified + " v200 bindings, custom bindings, sensitivity, repeat launches, path and audio migration");
     }
 }

@@ -57,6 +57,9 @@ jobs:
       - name: Build
         run: gradle --console=plain assembleNormalRelease assembleAutomotiveRelease
 
+      - name: Check both engines and audio libraries in APKs
+        run: python3 ../tools/check_apk_contents.py app/build/outputs/apk/normal/release/*.apk app/build/outputs/apk/automotive/release/*.apk
+
       # Gradle signs with whatever debug key it finds or makes on the runner,
       # which is not the one of the APKs already installed: sign again with
       # the one from the secret (alias androiddebugkey, password android, as

@@ -44,6 +44,7 @@ final class Unreal226Config {
             }
             // Windows path separators in [Core.System] (Paths=..\Maps\*.unr).
             text = fixPathSeparators(text);
+            text = GoldAudioProfile.migrate(text);
             // Drivers are always forced: the Windows ones in Unreal.ini cannot load.
             text = upsert(text, "Engine.Engine", "GameRenderDevice", "NOpenGLESDrv.NOpenGLESRenderDevice");
             text = upsert(text, "Engine.Engine", "WindowedRenderDevice", "NOpenGLESDrv.NOpenGLESRenderDevice");

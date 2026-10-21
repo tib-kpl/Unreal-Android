@@ -5151,6 +5151,11 @@ while( SDL_PollEvent( &Ev ) )
 				break;
 			#ifdef PLATFORM_ANDROID
             case SDL_JOYBUTTONDOWN:
+#if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_JOYBUTTONDOWN */
         if( bShowWindowsMouse || UnrealGoldClassicMenuJoyCopy( this, Ev.jbutton.which ) )
@@ -5160,6 +5165,11 @@ while( SDL_PollEvent( &Ev ) )
         }
 #endif
             case SDL_JOYBUTTONUP:
+#if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_JOYBUTTONUP */
         if( bShowWindowsMouse || UnrealGoldClassicMenuJoyCopy( this, Ev.jbutton.which ) )
@@ -5199,6 +5209,11 @@ while( SDL_PollEvent( &Ev ) )
                 break;
             }
             case SDL_JOYHATMOTION:
+#if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
             {
                 if( UnrealGoldClassicMenuJoyCopy( this, Ev.jhat.which ) )
                     break;
@@ -5210,6 +5225,11 @@ while( SDL_PollEvent( &Ev ) )
                 break;
             }
             case SDL_JOYAXISMOTION:
+#if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_JOYAXISMOTION */
         if( bShowWindowsMouse || UnrealGoldClassicMenuJoyCopy( this, Ev.jaxis.which ) )
@@ -5235,6 +5255,11 @@ while( SDL_PollEvent( &Ev ) )
 #endif
 			case SDL_CONTROLLERBUTTONDOWN:
 #if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
+#if UNREAL_GOLD_226
         if( !bShowWindowsMouse )
         {
             GoldPadButton( this, (INT)Ev.cbutton.button, 1 );
@@ -5250,6 +5275,11 @@ while( SDL_PollEvent( &Ev ) )
         }
 #endif
             case SDL_CONTROLLERBUTTONUP:
+#if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
 #if UNREAL_GOLD_226
         if( !bShowWindowsMouse )
         {
@@ -5302,6 +5332,11 @@ while( SDL_PollEvent( &Ev ) )
 				}
 				break;
 			case SDL_CONTROLLERAXISMOTION:
+#if UNREAL_GOLD_226
+                // Once Android owns the pad, suppress *all* SDL copies,
+                // including raw joysticks SDL failed to classify as controllers.
+                if( GoldPadDirectAndroid ) break;
+#endif
 #if UNREAL_GOLD_226
         GoldPadSyncMenu( this );
         if( Ev.caxis.axis < SDL_CONTROLLER_AXIS_MAX )
@@ -5629,6 +5664,7 @@ while( SDL_PollEvent( &Ev ) )
 #if UNREAL_GOLD_226
             case SDL_USEREVENT + 0x226:
             {
+                GoldPadDirectAndroid=1;
                 GoldPadSyncMenu(this);
                 const INT Key=Ev.user.code;
                 const UBOOL Down=(PTRINT)Ev.user.data1!=0;
@@ -5644,6 +5680,7 @@ while( SDL_PollEvent( &Ev ) )
             }
             case SDL_USEREVENT + 0x227:
             {
+                GoldPadDirectAndroid=1;
                 GoldPadSyncMenu(this);
                 const INT Axis=Ev.user.code;
                 const FLOAT Value=(FLOAT)(PTRINT)Ev.user.data1/32767.0f;

@@ -186,6 +186,22 @@ void PlayAudio()
 			AudioSleep( 1 );
 	}
 
+#if UNREAL_GOLD_226
+    // One startup diagnostic verifies that initialized voices/music produce
+    // real PCM, rather than an apparently open device queuing only silence.
+    static UBOOL LoggedActivePCM=0;
+    if( !LoggedActivePCM )
+    {
+        INT Peak=0;
+        const SWORD* Samples=(const SWORD*)AudioBuffer;
+        for(INT i=0;i<BufferSize/(INT)sizeof(SWORD);++i) Peak=Max(Peak,Abs((INT)Samples[i]));
+        if( Peak>0 )
+        {
+            LoggedActivePCM=1;
+            SDL_Log("Gold audio PCM active: peak=%d rate=%d stereo=%d",Peak,AudioRate,(AudioFormat&AUDIO_STEREO)!=0);
+        }
+    }
+#endif
 	if( SDL_QueueAudio( AndroidAudioDevice, AudioBuffer, BufferSize ) != 0 )
 		debugf( NAME_Init, TEXT("Android SDL audio: SDL_QueueAudio failed: %s"), appFromAnsi(SDL_GetError()) );
 }

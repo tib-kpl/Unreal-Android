@@ -6,8 +6,11 @@ static FLOAT GoldPadAxes[SDL_CONTROLLER_AXIS_MAX] = {0};
 static FLOAT GoldPadFiltered[2] = {0};
 static UBOOL GoldPadActive[2] = {0};
 static INT GoldPadMenu = -1;
+static UBOOL GoldPadDirectAndroid=0;
 static UBOOL GoldPadDigitalTriggers[2]={0};
 static UBOOL GoldPadCaptureArmed=0;
+static UBOOL GoldPadMenuArmed=0;
+static UBOOL GoldPadMenuAxes[4]={0};
 
 static UBOOL GoldPadInMenu( UNSDLViewport* V )
 {
@@ -180,6 +183,8 @@ static void GoldPadReset( UNSDLViewport* V )
     UT99V47ReleaseGameplayStatesV79(V);
     GUT99V47LX=GUT99V47LY=GUT99V47RX=GUT99V47RY=0.0f;
     GUT99V50LX=GUT99V50LY=GUT99V50RX=GUT99V50RY=0.0f;
+    appMemset(GoldPadMenuAxes,0,sizeof(GoldPadMenuAxes));
+    GoldPadMenuArmed=0;
     appMemset(GoldPadButtons, 0, sizeof(GoldPadButtons));
     appMemset(GoldPadDigitalTriggers,0,sizeof(GoldPadDigitalTriggers));
     appMemset(GoldPadAxes, 0, sizeof(GoldPadAxes));
@@ -202,10 +207,16 @@ static void GoldPadSyncMenu( UNSDLViewport* V )
         FLOAT Axes[SDL_CONTROLLER_AXIS_MAX];
         appMemcpy(Axes,GoldPadAxes,sizeof(Axes));
         GoldPadReset(V);
-        if( Menu==2 ) appMemcpy(GoldPadAxes,Axes,sizeof(Axes));
+        if( Menu!=0 ) appMemcpy(GoldPadAxes,Axes,sizeof(Axes));
         GoldPadCaptureArmed=0;
         GoldPadMenu = Menu;
     }
+}
+
+static INT GoldPadArrowIndex(INT Key)
+{
+    switch(Key) { case IK_Left:return 0; case IK_Right:return 1; case IK_Up:return 2; case IK_Down:return 3; }
+    return -1;
 }
 
 static void GoldPadButton( UNSDLViewport* V, INT Button, UBOOL Down )
@@ -215,8 +226,11 @@ static void GoldPadButton( UNSDLViewport* V, INT Button, UBOOL Down )
     // Release the key selected at press time, even if a menu opened meanwhile.
     if( !Down )
     {
-        GoldPadKey(V, GoldPadButtons[Button], 0);
+        const INT Key=GoldPadButtons[Button];
+        const INT Arrow=GoldPadArrowIndex(Key);
         GoldPadButtons[Button] = IK_None;
+        // A D-pad release must not release a still-held stick direction.
+        if( Arrow<0 || !GoldPadMenuAxes[Arrow] ) GoldPadKey(V,Key,0);
         return;
     }
     if( GoldPadButtons[Button] ) return;
@@ -313,11 +327,27 @@ static void GoldPadTick( UNSDLViewport* V )
     GConfig->GetFloat(TEXT("NSDLDrv.NSDLClient"),TEXT("AndroidNativeTriggerDeadzone"),TriggerDead);
     GConfig->GetFloat(TEXT("NSDLDrv.NSDLClient"),TEXT("AndroidNativeRightStickScale"),Scale);
     const FLOAT LX=GoldPadDeadzone(GoldPadAxes[0],LeftDead), LY=GoldPadDeadzone(GoldPadAxes[1],LeftDead);
-    GoldPadDirection(V,UI ? IK_Left : IK_UnknownD8,-LX,UI,Capture);
-    GoldPadDirection(V,UI ? IK_Right : IK_UnknownD9,LX,UI,Capture);
-    GoldPadDirection(V,UI ? IK_Up : IK_UnknownDA,-LY,UI,Capture);
-    GoldPadDirection(V,UI ? IK_Down : IK_UnknownDF,LY,UI,Capture);
-    if( UI ) return;
+    if( UI )
+    {
+        // Opening a menu while moving must not navigate it until the stick
+        // returns to centre. Track stick and D-pad separately so one source
+        // cannot release/re-trigger the other's held arrow each frame.
+        if( !GoldPadMenuArmed && Abs(LX)<=0.25f && Abs(LY)<=0.25f ) GoldPadMenuArmed=1;
+        const FLOAT Direction[4]={-LX,LX,-LY,LY};
+        const INT Keys[4]={IK_Left,IK_Right,IK_Up,IK_Down};
+        const INT Buttons[4]={SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+            SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN};
+        for(INT i=0;i<4;++i)
+        {
+            GoldPadMenuAxes[i]=GoldPadMenuArmed && Direction[i]>=(GoldPadMenuAxes[i] ? 0.25f : 0.50f);
+            GoldPadKey(V,Keys[i],GoldPadMenuAxes[i] || GoldPadButtons[Buttons[i]]!=IK_None);
+        }
+        return;
+    }
+    GoldPadDirection(V,IK_UnknownD8,-LX,0,Capture);
+    GoldPadDirection(V,IK_UnknownD9,LX,0,Capture);
+    GoldPadDirection(V,IK_UnknownDA,-LY,0,Capture);
+    GoldPadDirection(V,IK_UnknownDF,LY,0,Capture);
     GoldPadKey(V,IK_Joy12,GoldPadDeadzone(Max(GoldPadAxes[4],GoldPadDigitalTriggers[0] ? 1.0f : 0.0f),TriggerDead)>(GoldPadKeys[IK_Joy12] ? 0.125f : 0.25f));
     GoldPadKey(V,IK_Joy13,GoldPadDeadzone(Max(GoldPadAxes[5],GoldPadDigitalTriggers[1] ? 1.0f : 0.0f),TriggerDead)>(GoldPadKeys[IK_Joy13] ? 0.125f : 0.25f));
     const INT Negative[2]={IK_Joy14,IK_Joy16}, Positive[2]={IK_Joy15,IK_UnknownEA};
