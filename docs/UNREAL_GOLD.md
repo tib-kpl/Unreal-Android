@@ -278,6 +278,14 @@ size no longer moves or enlarges world light effects.
 
 ## French map texts and saves
 
+Classic New Game opens maps using Windows paths such as `..\maps\Vortex2.unr`.
+The v400 loader gives those files anonymous `PackageN` names, so actor PostLoad
+looked for `PackageN.frt` instead of `Vortex2.frt`. Localization is now applied
+before gameplay for every non-English map, using the basename of the launch
+URL, or the original saved map URL when loading a save. Translator message/hint
+caches still migrate with the map actors. Thor regression checks cover the
+exact Windows URL from New Game and the player's existing English Vortex2 save.
+
 At Gold startup, French selection checks the localization files for installed
 maps in both Maps and Maps/UPak, plus the Gold UI packages. Missing files are
 downloaded from OldUnreal's localization repository; existing retail files

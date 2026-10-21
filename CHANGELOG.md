@@ -3,6 +3,20 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.7
+
+- Fix Gold translator messages and hints remaining English after Classic New
+  Game: Windows/absolute map paths can load into anonymous packages. Resolve
+  localization from the real map name before gameplay, as well as on save load.
+
+## 2.4.6
+
+- Visible Android editor and keyboard for classic menu text fields in both
+  engines, with controller A/B to confirm/cancel.
+- Shared Off/Light/Medium/Strong controller camera assistance near hostile NPCs.
+- Detect incompatible patched PC packages (such as 227) before launch and
+  offer to download/install retail Gold 226 in a separate folder.
+
 ## 2.4.5
 
 - Use one consistent face and size for classic menu labels, values and help,

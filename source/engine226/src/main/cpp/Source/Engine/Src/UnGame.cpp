@@ -1474,12 +1474,12 @@ ULevel* UGameEngine::LoadMap( const FURL& URL, UPendingLevel* Pending, const TMa
 	unguard;
 
 #if UNREAL_GOLD_226
-    // Saved actors belong to SaveN, but their translations still belong to the
-    // original map package. Restore them before play resumes, including cached
-    // translator messages/hints that were copied before switching languages.
-    if(URL.GetOption(TEXT("load"),NULL) && appStricmp(UObject::GetLanguage(),TEXT("int")))
+    // Windows/absolute map URLs can load actors into anonymous PackageN, and
+    // saves use SaveN. Their translations still belong to the original map.
+    // Apply them before gameplay, including cached translator messages/hints.
+    if(appStricmp(UObject::GetLanguage(),TEXT("int")))
     {
-        FString Map=GLevel->URL.Map;
+        FString Map=URL.GetOption(TEXT("load"),NULL) ? GLevel->URL.Map : URL.Map;
         const TCHAR* Name=*Map;
         for(const TCHAR* P=Name;*P;++P) if(*P=='/' || *P=='\\') Name=P+1;
         FString Package(Name);
@@ -1513,7 +1513,7 @@ ULevel* UGameEngine::LoadMap( const FURL& URL, UPendingLevel* Pending, const TMa
                 if(Translated) Value=*Translated;
             }
         }
-        debugf(NAME_Localization,TEXT("Gold save localization restored from %s.%s"),*Package,UObject::GetLanguage());
+        debugf(NAME_Localization,TEXT("Gold map localization restored from %s.%s"),*Package,UObject::GetLanguage());
     }
 #endif
 
