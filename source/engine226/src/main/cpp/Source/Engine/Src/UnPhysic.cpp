@@ -346,7 +346,15 @@ void APawn::physicsRotation(FLOAT deltaTime, FVector OldVelocity)
 	}
 
 	//ROLL
-	if (RotationRate.Roll > 0) 
+#if UNREAL_GOLD_226
+	// On an interpolation path (the intro flyby) the path sets the roll; a
+	// bank computed from the per-frame acceleration only adds jitter.
+	if (Physics == PHYS_Interpolating)
+	{
+	}
+	else
+#endif
+	if (RotationRate.Roll > 0)
 	{
 		//pawns roll based on physics
 		if ((Physics == PHYS_Walking) && Velocity.SizeSquared() < 40000.f)
@@ -390,6 +398,10 @@ void APawn::physicsRotation(FLOAT deltaTime, FVector OldVelocity)
 				//if ((NewRotation.Roll > MaxRoll) && (NewRotation.Roll < (65536 - MaxRoll)))
 				//	debugf("Illegal roll for %f", RealAcceleration.Y);
 			}
+#if !UNREAL_GOLD_226
+			// UT only. Unreal leaves the roll alone here: on an interpolation
+			// path (the intro flyby) this pull towards 0 fights the roll set by
+			// the path every frame and shakes the camera.
 			else
 			{
 				FLOAT SmoothRoll = Min(1.f, 8.f * deltaTime);
@@ -398,6 +410,7 @@ void APawn::physicsRotation(FLOAT deltaTime, FVector OldVelocity)
 				else
 					NewRotation.Roll = (INT) (NewRotation.Roll + (65536 - NewRotation.Roll) * SmoothRoll);
 			}
+#endif
 		}
 	}
 	else

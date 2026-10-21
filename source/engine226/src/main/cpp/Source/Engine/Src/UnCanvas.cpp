@@ -916,6 +916,22 @@ void UCanvas::execDrawText( FFrame& Stack, RESULT_DECL )
 		return;
 	}
 	INT XL=0, YL=0;
+#if UNREAL_GOLD_226
+	// IntroNullHud places ESCMessage at ClipX/2-66, half the width of the
+	// English "Press ESC to begin": centre it for every language.
+	if( Stack.Node && Stack.Object && Stack.Node->GetFName()==FName(TEXT("PostRender"))
+	 && appStricmp(Stack.Object->GetClass()->GetName(),TEXT("IntroNullHud"))==0 && CurY < 16.f )
+	{
+		// Measure exactly as it is drawn: an invisible pass of the same print,
+		// from X=0 since WrappedPrint's width includes the start position.
+		INT TextXL=0, TextYL=0;
+		const FLOAT SavedX = CurX, SavedY = CurY;
+		CurX = 0.f;
+		WrappedPrint( STY_None, TextXL, TextYL, Font, 0, *InText );
+		CurY = SavedY;
+		CurX = TextXL > 0 ? Max( 0.f, (ClipX - TextXL) / 2.f ) : SavedX;
+	}
+#endif
 	if( Style!=STY_None )
 		WrappedPrint( (ERenderStyle)Style, XL, YL, Font, bCenter, *InText );
 	CurX += XL;

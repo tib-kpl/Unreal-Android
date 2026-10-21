@@ -1800,6 +1800,14 @@ void UGameEngine::Draw( UViewport* Viewport, UBOOL Blit, BYTE* HitData, INT* Hit
 	// If not up and running yet, don't draw.
 	if( !GIsRunning )
 		return;
+#if UNREAL_GOLD_226
+	// The Unreal intro starts its flyby on the first tick: the first frame
+	// would show the PlayerStart view, then jump onto the camera path.
+	if( GLevel && Viewport->Actor && !Viewport->Actor->bInterpolating
+	 && Viewport->Actor->Level && Viewport->Actor->Level->TimeSeconds < 1.f
+	 && (appStricmp(*GLevel->URL.Map,TEXT("Unreal"))==0 || appStricmp(*GLevel->URL.Map,TEXT("Unreal.unr"))==0) )
+		return;
+#endif
 	UpdateConnectingMessage();
 
 	// Get view location.
