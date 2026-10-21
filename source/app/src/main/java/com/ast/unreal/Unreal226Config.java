@@ -16,7 +16,7 @@ final class Unreal226Config {
     private Unreal226Config() {}
 
     /** Creates System/Android226.ini on first launch; later launches keep user changes. */
-    static void ensureAndroidIni(File system, String language) {
+    static void ensureAndroidIni(File system, String language, int screenHeight) {
         File ini = new File(system, Unreal226Activity.INI_NAME);
         try {
             String text;
@@ -42,6 +42,8 @@ final class Unreal226Config {
                 text = upsert(text, "NSDLDrv.NSDLClient", "UseJoystick", "True");
                 text = upsert(text, "NSDLDrv.NSDLClient", "Brightness", "0.600000");
                 text = upsert(text, "Engine.GameEngine", "CacheSizeMegs", "4");
+                // UWindow menus are drawn in pixels: double them on HD screens, as UT99-Android does.
+                text = upsert(text, "UMenu.UMenuRootWindow", "GUIScale", screenHeight > 540 ? "2.000000" : "1.000000");
             }
             write(ini, text);
         } catch (IOException e) {

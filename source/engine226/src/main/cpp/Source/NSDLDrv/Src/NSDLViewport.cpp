@@ -22,6 +22,16 @@ extern "C" int UT99AndroidDesktopDPI()
     return (int)(DPI+0.5f);
 }
 
+// Java classes called by the engine: UT99's GameActivity, or the Unreal Gold
+// activity of Unreal-Android.
+#if UNREAL_GOLD_226
+#define UE1_ANDROID_JAVA_PACKAGE "com/ast/unreal/"
+#define UE1_ANDROID_ACTIVITY_CLASS "com/ast/unreal/Unreal226Activity"
+#else
+#define UE1_ANDROID_JAVA_PACKAGE "com/ast/ut99/"
+#define UE1_ANDROID_ACTIVITY_CLASS "com/ast/ut99/GameActivity"
+#endif
+
 extern "C" void UT99AndroidTextInput(int Start)
 {
     if(Start) SDL_StartTextInput(); else SDL_StopTextInput();
@@ -32,7 +42,7 @@ extern "C" int* UT99AndroidFontPage(int Family,int Size,int Flags,const unsigned
     *Length=0;
     JNIEnv* Env=(JNIEnv*)SDL_AndroidGetJNIEnv();
     if(!Env || Count<1 || Count>256) return NULL;
-    jclass C=Env->FindClass("com/ast/ut99/Ut99DynamicFont");
+    jclass C=Env->FindClass(UE1_ANDROID_JAVA_PACKAGE "Ut99DynamicFont");
     if(!C) { Env->ExceptionClear(); return NULL; }
     jmethodID M=Env->GetStaticMethodID(C,"build","(IIILjava/lang/String;)[I");
     jstring Text=Env->NewString((const jchar*)Glyphs,Count);
@@ -59,7 +69,7 @@ extern "C" int UT99AndroidRedirectStart(const char* Address,const char* Path,int
 {
     JNIEnv* Env=(JNIEnv*)SDL_AndroidGetJNIEnv();
     if(!Env) return 0;
-    jclass C=Env->FindClass("com/ast/ut99/Ut99RedirectDownload");
+    jclass C=Env->FindClass(UE1_ANDROID_JAVA_PACKAGE "Ut99RedirectDownload");
     if(!C) { Env->ExceptionClear(); return 0; }
     jmethodID M=Env->GetStaticMethodID(C,"start","(Ljava/lang/String;Ljava/lang/String;IZ)Z");
     char Absolute[4096];
@@ -81,7 +91,7 @@ extern "C" int UT99AndroidRedirectPoll(int Progress)
 {
     JNIEnv* Env=(JNIEnv*)SDL_AndroidGetJNIEnv();
     if(!Env) return -1;
-    jclass C=Env->FindClass("com/ast/ut99/Ut99RedirectDownload");
+    jclass C=Env->FindClass(UE1_ANDROID_JAVA_PACKAGE "Ut99RedirectDownload");
     if(!C) { Env->ExceptionClear(); return -1; }
     const char* Method=Progress==2 ? "total" : Progress==1 ? "progress" : "status";
     jmethodID M=Env->GetStaticMethodID(C,Method,"()I");
@@ -95,7 +105,7 @@ extern "C" void UT99AndroidRedirectCancel()
 {
     JNIEnv* Env=(JNIEnv*)SDL_AndroidGetJNIEnv();
     if(!Env) return;
-    jclass C=Env->FindClass("com/ast/ut99/Ut99RedirectDownload");
+    jclass C=Env->FindClass(UE1_ANDROID_JAVA_PACKAGE "Ut99RedirectDownload");
     if(!C) { Env->ExceptionClear(); return; }
     jmethodID M=Env->GetStaticMethodID(C,"cancel","()V");
     if(M) Env->CallStaticVoidMethod(C,M);
@@ -108,7 +118,7 @@ static void UT99AndroidSetJavaImeWantedV76( int Wanted )
     if( !Env )
         return;
 
-    jclass ActivityClass = Env->FindClass( "com/ast/ut99/GameActivity" );
+    jclass ActivityClass = Env->FindClass( UE1_ANDROID_ACTIVITY_CLASS );
     if( !ActivityClass )
     {
         Env->ExceptionClear();
@@ -368,7 +378,7 @@ static void UT99AndroidCallJavaResolutionModeV166( const FString& Mode )
     if( !Env )
         return;
 
-    jclass ActivityClass = Env->FindClass( "com/ast/ut99/GameActivity" );
+    jclass ActivityClass = Env->FindClass( UE1_ANDROID_ACTIVITY_CLASS );
     if( !ActivityClass )
     {
         Env->ExceptionClear();
@@ -400,7 +410,7 @@ static UBOOL UT99AndroidUseAsyncResolutionCommitV219()
     if( !Env )
         return 0;
 
-    jclass ActivityClass = Env->FindClass( "com/ast/ut99/GameActivity" );
+    jclass ActivityClass = Env->FindClass( UE1_ANDROID_ACTIVITY_CLASS );
     if( !ActivityClass )
     {
         Env->ExceptionClear();
@@ -1768,7 +1778,18 @@ static INT UT99RetroTouchDetermineUiState( UNSDLViewport* Viewport, UBOOL bMenu 
             return 0;
         if( appStricmp(MapName,TEXT("Entry"))==0 || appStricmp(MapName,TEXT("Entry.unr"))==0 )
             return 0;
+#if UNREAL_GOLD_226
+        // The Unreal intro flyby (LocalMap), skipped with Escape.
+        if( appStricmp(MapName,TEXT("Unreal"))==0 || appStricmp(MapName,TEXT("Unreal.unr"))==0 )
+            return 0;
+#endif
     }
+#if UNREAL_GOLD_226
+    // Return to Na Pali cutscenes (Intro1, Inter*, End) run the CSMovie game.
+    ALevelInfo* Info = Viewport->Actor->GetLevel()->GetLevelInfo();
+    if( Info && Info->Game && appStricmp(Info->Game->GetClass()->GetName(),TEXT("CSMovie"))==0 )
+        return 0;
+#endif
 
     return 2;
 }
@@ -2079,6 +2100,14 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_GameActivity_nativeAndroid
     GUT99V101TouchLookX = Clamp(GUT99V101TouchLookX + (FLOAT)x, -2.0f, 2.0f);
     GUT99V101TouchLookY = Clamp(GUT99V101TouchLookY + (FLOAT)y, -2.0f, 2.0f);
 }
+#if UNREAL_GOLD_226
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeAndroidButtonV47(JNIEnv* Env, jclass C, jint keyCode, jboolean down) { Java_com_ast_ut99_GameActivity_nativeAndroidButtonV47(Env, C, keyCode, down); }
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeAndroidAxisV47(JNIEnv* Env, jclass C, jint axis, jfloat value) { Java_com_ast_ut99_GameActivity_nativeAndroidAxisV47(Env, C, axis, value); }
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeAndroidTouchLookV101(JNIEnv* Env, jclass C, jfloat x, jfloat y) { Java_com_ast_ut99_GameActivity_nativeAndroidTouchLookV101(Env, C, x, y); }
+extern "C" JNIEXPORT jint JNICALL Java_com_ast_unreal_Unreal226Activity_nativeAndroidTouchUiStateRT(JNIEnv* Env, jclass C) { return Java_com_ast_ut99_GameActivity_nativeAndroidTouchUiStateRT(Env, C); }
+extern "C" JNIEXPORT jint JNICALL Java_com_ast_unreal_Unreal226Activity_nativeAndroidInputResetSerialRT(JNIEnv* Env, jclass C) { return Java_com_ast_ut99_GameActivity_nativeAndroidInputResetSerialRT(Env, C); }
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeAndroidTextV82(JNIEnv* Env, jclass C, jstring Text) { Java_com_ast_ut99_GameActivity_nativeAndroidTextV82(Env, C, Text); }
+#endif
 #endif
 #endif /* UT99_ANDROID_NATIVE_INPUT_V47_END_V47B */
 

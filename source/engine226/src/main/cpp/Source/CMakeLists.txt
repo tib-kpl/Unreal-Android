@@ -243,7 +243,8 @@ endif()
 
 # Subprojects
 
-set(INSTALL_TARGETS Core Engine Render Audio IpDrv Fire)
+# UPak: natives of Return to Na Pali (Unreal Gold).
+set(INSTALL_TARGETS Core Engine Render Audio IpDrv Fire UPak)
 
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
@@ -253,6 +254,7 @@ add_subdirectory(Render)
 add_subdirectory(Audio)
 add_subdirectory(IpDrv)
 add_subdirectory(Fire)
+add_subdirectory(UPak)
 #add_subdirectory(UCC)
 
 if(USE_SDL)

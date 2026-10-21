@@ -11,12 +11,13 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
 /** Android settings opened from the gear of the Unreal Gold game screen. */
 public final class GoldSettingsActivity extends Activity {
-    static final int OPEN = 3520, RESTART = 3521, DATA = 3522;
+    static final int OPEN = 3520, RESTART = 3521, DATA = 3522, EDIT_TOUCH = 3523, RESET_TOUCH = 3524;
     private static final String[] NAMES = {"English", "Français", "Deutsch", "Español", "Italiano"};
     private static final String[] CODES = {"int", "frt", "det", "est", "itt"};
     private String selectedLanguage;
@@ -42,6 +43,15 @@ public final class GoldSettingsActivity extends Activity {
         return button;
     }
 
+    private Spinner spinner(String[] names, int initial) {
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(initial);
+        return spinner;
+    }
+
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -51,12 +61,48 @@ public final class GoldSettingsActivity extends Activity {
         body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(24), dp(12), dp(24), dp(16));
 
+        body.addView(label(text("Manette sur écran tactile", "On-screen touch controller"), 17));
+        String mode = UnrealGold.touch(this);
+        Spinner touch = spinner(new String[]{text("Automatique (sans manette physique)", "Automatic (without a physical controller)"),
+                text("Toujours afficher", "Always show"), text("Masquer", "Hide")}, mode.equals("on") ? 1 : mode.equals("off") ? 2 : 0);
+        touch.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) {
+                UnrealGold.touch(GoldSettingsActivity.this, new String[]{"auto", "on", "off"}[position]);
+            }
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        body.addView(touch);
+        final TextView opacityLabel = label("", 15);
+        final String opacityText = text("Opacité de la manette tactile : ", "On-screen controller opacity: ");
+        int opacity = UnrealGold.touchOpacity(this);
+        opacityLabel.setText(opacityText + opacity + " %");
+        body.addView(opacityLabel);
+        SeekBar opacityBar = new SeekBar(this);
+        opacityBar.setMax(16); // 20..100 % in 5 % steps
+        opacityBar.setProgress((opacity - 20) / 5);
+        opacityBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                int percent = 20 + progress * 5;
+                opacityLabel.setText(opacityText + percent + " %");
+                UnrealGold.touchOpacity(GoldSettingsActivity.this, percent);
+            }
+            public void onStartTrackingTouch(SeekBar bar) { }
+            public void onStopTrackingTouch(SeekBar bar) { }
+        });
+        body.addView(opacityBar, new LinearLayout.LayoutParams(-1, dp(48)));
+        body.addView(button(text("Modifier la disposition de la manette tactile", "Edit on-screen controller layout"), () -> {
+            setResult(EDIT_TOUCH);
+            finish();
+        }));
+        body.addView(button(text("Réinitialiser la disposition", "Reset layout"), () ->
+                new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                        .setMessage(text("Remettre les boutons tactiles à leur position d’origine ?", "Restore the touch buttons to their default position?"))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(text("Réinitialiser", "Reset"), (dialog, which) -> { setResult(RESET_TOUCH); finish(); })
+                        .show()));
+
         body.addView(label(text("Langue du jeu", "Game language"), 17));
-        Spinner language = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, NAMES);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        language.setAdapter(adapter);
-        language.setSelection(Math.max(0, java.util.Arrays.asList(CODES).indexOf(selectedLanguage)));
+        Spinner language = spinner(NAMES, Math.max(0, java.util.Arrays.asList(CODES).indexOf(selectedLanguage)));
         language.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedLanguage = CODES[position]; }
             public void onNothingSelected(AdapterView<?> parent) { }

@@ -40,6 +40,8 @@ final class UnrealGold {
     private static final String PREFS = "unreal_gold";
     private static final String KEY_ROOT = "root";
     private static final String KEY_LANGUAGE = "language";
+    private static final String KEY_TOUCH = "touch";
+    private static final String KEY_TOUCH_OPACITY = "touch_opacity";
 
     private UnrealGold() {}
 
@@ -84,6 +86,24 @@ final class UnrealGold {
 
     static void setLanguage(Context context, String language) {
         prefs(context).edit().putString(KEY_LANGUAGE, language).commit();
+    }
+
+    /** On-screen controller: "auto" (without a physical controller), "on" or "off". */
+    static String touch(Context context) {
+        return prefs(context).getString(KEY_TOUCH, "auto");
+    }
+
+    static void touch(Context context, String value) {
+        prefs(context).edit().putString(KEY_TOUCH, value).commit();
+    }
+
+    /** Whole on-screen controller opacity in percent (20..100). */
+    static int touchOpacity(Context context) {
+        return Math.max(20, Math.min(100, prefs(context).getInt(KEY_TOUCH_OPACITY, 70)));
+    }
+
+    static void touchOpacity(Context context, int percent) {
+        prefs(context).edit().putInt(KEY_TOUCH_OPACITY, percent).commit();
     }
 
     private static SharedPreferences prefs(Context context) {

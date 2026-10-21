@@ -1474,7 +1474,12 @@ ULevel* UGameEngine::LoadMap( const FURL& URL, UPendingLevel* Pending, const TMa
 	guard(InitLevel);
 	if( !URL.GetOption(TEXT("load"),NULL) )
 		GLevel->URL = URL;
+#if UNREAL_GOLD_226
+	// Shown by the Unreal Gold menus; the native engine stays the v400 one.
+	Info->EngineVersion = TEXT("226");
+#else
 	Info->EngineVersion = FString::Printf( TEXT("%i"), ENGINE_VERSION );
+#endif
 	Info->MinNetVersion = FString::Printf( TEXT("%i"), ENGINE_MIN_NET_VERSION );
 	GLevel->Engine = this;
 	if( TravelInfo )
@@ -1946,7 +1951,11 @@ void UGameEngine::Draw( UViewport* Viewport, UBOOL Blit, BYTE* HitData, INT* Hit
 
 			// V2.0: render Engine.SmallFont at an exact 3x scale.
 			TCHAR BuildLabel[128];
+#if UNREAL_GOLD_226
+			appSprintf( BuildLabel, TEXT("Unreal Gold Android %s (%s)"), VersionText, PlatformText );
+#else
 			appSprintf( BuildLabel, TEXT("UT99 Android %s (%s)"), VersionText, PlatformText );
+#endif
 			static UBOOL bRuntimeVersionLogged = 0;
 			if( !bRuntimeVersionLogged )
 			{
