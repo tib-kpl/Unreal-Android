@@ -83,6 +83,20 @@ on L1/R1 now cycles weapons there, and its previous weapon buttons cycle items.
 The table above describes the shipped fallback; importing a personal profile
 before or after its upgrade does not exchange the actions a second time.
 
+## Player view compatibility
+
+Retail 226 PlayerPawn does not set the v400 `bViewTarget` default. The native
+player tick must still update PlayerPawn eye height and preserve ViewRotation.
+Otherwise it overwrites the aim with body Rotation (limited to about 17 degrees)
+and leaves the eyes at standing height even when bDuck and bIsCrouching are set.
+The compatibility path applies to player pawns; ordinary non-view pawns retain
+the existing behaviour.
+
+On the Thor, a held right stick reached the original bounds (-90 to about
+99 degrees), and a held B lowered EyeHeight from 23 to near 0 before returning
+to standing on release. The same native path handles existing saves and both
+Unreal and Return to Na Pali.
+
 ## Camera comfort and full screen
 
 Android settings expose sideways camera tilt from 0% (disabled) to 100%
@@ -219,9 +233,11 @@ curve to RGB after brightness, preserving black and alpha coverage. Gamma 1.0
 retains the previous brightness response. Returning from Android settings
 updates it without restarting or touching gameplay progress.
 
-Classic list menus measure their translated labels and select a font that
-fits the menu panel, keeping a consistent face across the rows. Size adjustment
-now covers 50–125%. Native projected coronas and lens flares keep physical pixel
+Classic menu labels, values and help all use the same stock MedFont and size
+across Game, Multiplayer and their submenus. Drawing, StrLen and TextSize use
+the same face; titles are centred using their measured width rather than the
+old decorative-font character estimate. Size adjustment covers 50–125%.
+Native projected coronas and lens flares keep physical pixel
 coordinates, while scripted HUD icons use the logical canvas; increasing HUD
 size no longer moves or enlarges world light effects.
 

@@ -108,7 +108,8 @@ working unchanged.
   stick response; the RetroTouch on-screen controller is available in menus and
   in game, and stays out of the way in the intro and the cutscenes.
 - **Readable Gold interface** – classic menus and the HUD scale with the
-  resolution, and French retains the large menu fonts. The Android settings
+  resolution. Classic menu labels, values and help share one consistent font
+  and size, including the Game and Multiplayer menus. The Android settings
   provide interface size (50–125%) and gamma controls, applied when returning to the
   game. Gamma reveals shadow detail separately from the brightness setting.
 - **French game texts** – missing French menus, translator messages and hints
@@ -121,6 +122,8 @@ working unchanged.
   shows the objective/hint in both v200 and Gold; B crouches and Select opens
   the translator. Existing installs receive the R3 shortcut once, preserving
   other personal R3 actions and later remapping.
+- **Gold player view** – vertical look retains the original full range, and
+  crouching lowers the viewpoint instead of only slowing movement.
 - **Camera comfort** – sideways tilt defaults to 25% of the original effect.
   Android settings offer 0–100%, including complete disable, in both engines.
   Weapon and inventory cycling actions are exchanged once on physical pads;

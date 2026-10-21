@@ -945,7 +945,14 @@ void UCanvas::execStrLen( FFrame& Stack, RESULT_DECL )
 	OldCurY = (INT) CurY;
 	CurX = 0;
 	CurY = 0;
+#if UNREAL_GOLD_226
+    UFont* SavedMenuFont=Font;
+    if(Stack.Object && Stack.Object->IsA(AMenu::StaticClass())) Font=MedFont;
+#endif
 	WrappedStrLenf( Font, XLi, YLi, TEXT("%s"), *InText );
+#if UNREAL_GOLD_226
+    Font=SavedMenuFont;
+#endif
 	CurY = OldCurY;
 	CurX = OldCurX;
 	*XL = XLi;
@@ -969,29 +976,17 @@ void UCanvas::execDrawText( FFrame& Stack, RESULT_DECL )
 	INT XL=0, YL=0;
 #if UNREAL_GOLD_226
     UFont* SavedMenuFont=Font;
+    // All classic menus share one face and size, including labels, values and help.
+    if (Stack.Object && Stack.Object->IsA(AMenu::StaticClass())) Font=MedFont;
     if (Stack.Object && Stack.Node && Stack.Object->IsA(AMenu::StaticClass())
-        && Stack.Node->GetFName()==FName(TEXT("DrawList")) && (Font==LargeFont || Font==BigFont))
+        && Stack.Node->GetFName()==FName(TEXT("DrawTitle")))
     {
-        AMenu* Menu=(AMenu*)Stack.Object;
-        const FLOAT Available=Max(1.f,Min(ClipX-8.f,ClipX*.5f+120.f)-CurX);
-        UFont* Candidates[3]={Font,BigFont,MedFont};
-        for(INT Face=0;Face<3;++Face)
+        INT Width=0;
+        for(INT Char=0;(*InText)[Char];++Char)
         {
-            INT Widest=0;
-            for(INT Row=1;Row<=Min(Menu->MenuLength,23);++Row)
-            {
-                INT Width=0;
-                const TCHAR* Label=*Menu->MenuList[Row];
-                for(INT Char=0;Label[Char];++Char)
-                {
-                    INT W,H; GetCharSize(Candidates[Face],Label[Char],W,H);
-                    Width+=W+(INT)SpaceX;
-                }
-                Widest=Max(Widest,Width);
-            }
-            Font=Candidates[Face];
-            if(Widest<=Available) break;
+            INT W,H; GetCharSize(Font,(*InText)[Char],W,H); Width+=W+(INT)SpaceX;
         }
+        CurX=Max(8.f,(ClipX-Width)*.5f);
     }
 	// IntroNullHud places ESCMessage at ClipX/2-66, half the width of the
 	// English "Press ESC to begin": centre it for every language.
@@ -1226,6 +1221,10 @@ void UCanvas::execDrawTextClipped( FFrame& Stack, RESULT_DECL )
 		return;
 	}
 
+#if UNREAL_GOLD_226
+    UFont* SavedMenuFont=Font;
+    if(Stack.Object && Stack.Object->IsA(AMenu::StaticClass())) Font=MedFont;
+#endif
 	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT"))
 #if UNREAL_GOLD_226
         && appStricmp(UObject::GetLanguage(),TEXT("frt"))
@@ -1243,6 +1242,9 @@ void UCanvas::execDrawTextClipped( FFrame& Stack, RESULT_DECL )
 
 	FPlane DrawColor = Color.Plane();
 	DrawString( PolyFlags, this, Font, (INT) CurX, (INT) CurY, *InText, DrawColor, 1, CheckHotKey );
+#if UNREAL_GOLD_226
+    Font=SavedMenuFont;
+#endif
 
 	unguardexec;
 }
@@ -1262,13 +1264,17 @@ void UCanvas::execTextSize( FFrame& Stack, RESULT_DECL )
 		return;
 	}
 
+    UFont* MeasuredFont=Font;
+#if UNREAL_GOLD_226
+    if(Stack.Object && Stack.Object->IsA(AMenu::StaticClass())) MeasuredFont=MedFont;
+#endif
 	INT XLi = 0;
 	INT YLi = 0;
 	INT W, H;
 
 	for( INT i=0; (*InText)[i]; i++)
 	{
-		GetCharSize( Font, (*InText)[i], W, H );
+		GetCharSize( MeasuredFont, (*InText)[i], W, H );
 		
 		XLi += W;
 		if(YLi < H)

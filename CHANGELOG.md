@@ -3,6 +3,14 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.5
+
+- Use one consistent face and size for classic menu labels, values and help,
+  including Game and Multiplayer; measure and centre text with the same face.
+- Fix Gold's retail 226 player view ownership: preserve the full vertical look
+  angle instead of overwriting it with the limited body pitch, and update eye
+  height so holding B visibly crouches and releasing it restores the view.
+
 ## 2.4.4
 
 - Fit translated classic list labels within their menu panel and allow

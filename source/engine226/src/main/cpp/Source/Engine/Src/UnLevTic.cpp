@@ -636,7 +636,14 @@ UBOOL AActor::Tick( FLOAT DeltaSeconds, ELevelTick TickType )
 	{
 		if( Pawn->bIsPlayer && Role>=ROLE_AutonomousProxy )
 		{
-			if ( Pawn->bViewTarget )
+            // Retail 226 PlayerPawn has no v400 bViewTarget default. Treat
+            // player pawns as view owners so their look pitch is not replaced
+            // by the limited body pitch and their crouch eye height gets updated.
+            if ( Pawn->bViewTarget
+#if UNREAL_GOLD_226
+                || Pawn->IsA(APlayerPawn::StaticClass())
+#endif
+            )
 				Pawn->eventUpdateEyeHeight( DeltaSeconds );
 			else
 				Pawn->ViewRotation = Rotation;
