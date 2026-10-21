@@ -26,6 +26,9 @@ void UT99RegisterNativeFieldLayout(UStruct* Owner,const TCHAR* Name,const TCHAR*
 {
     FAndroidNativeFieldLayout& Field=*new(AndroidNativeLayouts())FAndroidNativeFieldLayout;
     Field.Owner=Owner; Field.Name=Name; Field.Type=Type; Field.Offset=Offset; Field.Size=Size; Field.BoolMask=BoolMask; Field.Capacity=Capacity;
+    // Registration can run before the package that uses these names loads;
+    // keep them from being purged and reused by garbage collection.
+    Field.Name.SetFlags(RF_Native); Field.Type.SetFlags(RF_Native);
 }
 static UBOOL HasAndroidNativeLayout(UStruct* Owner)
 {

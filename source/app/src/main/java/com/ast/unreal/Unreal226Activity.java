@@ -16,6 +16,7 @@ import java.io.File;
 public class Unreal226Activity extends SDLActivity {
     static final String INI_NAME = "Android226.ini";
     static final String USER_INI_NAME = "Android226User.ini";
+    static final String EXTRA_MAP = "com.ast.unreal.EXTRA_MAP";
 
     private File root;
 
@@ -30,7 +31,7 @@ public class Unreal226Activity extends SDLActivity {
         // The first engine token is the start URL: the Unreal Gold intro map.
         return new String[] {
                 "--ue1-root", dataRoot().getAbsolutePath(),
-                "Unreal.unr",
+                startMap(),
                 "LOG=Unreal226.log",
                 "INI=" + INI_NAME,
                 "USERINI=" + USER_INI_NAME
@@ -45,6 +46,12 @@ public class Unreal226Activity extends SDLActivity {
         getWindow().getDecorView().setBackgroundColor(Color.BLACK);
         Unreal226Config.ensureAndroidIni(new File(dataRoot(), "System"));
         super.onCreate(savedInstanceState);
+    }
+
+    /** Unreal.unr (the Gold intro) unless the intent names another map URL. */
+    private String startMap() {
+        String map = getIntent() != null ? getIntent().getStringExtra(EXTRA_MAP) : null;
+        return map != null && !map.trim().isEmpty() ? map.trim() : "Unreal.unr";
     }
 
     private File dataRoot() {
