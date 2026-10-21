@@ -65,11 +65,17 @@ The following defaults apply when no personal v200 profile is available:
 | L2 / R2 | Alternate / primary fire |
 | Select | Translator; back in menus |
 | Start / Mode | Open / close menu |
-| R3 | Center view |
+| R3 | Objective / hint (`ActivateHint`) |
 | L3 | Its configured action, crouch by default |
 | L3 + A / L3 + Y | Toggle infinite ammo / health, as in v200 |
 | D-pad left / right | Previous / next weapon |
 | D-pad up / down | Previous / next inventory item |
+
+R3 (right-stick click) opens the objective/hint in both v200 and Gold. A
+one-time upgrade fills an unassigned R3 or replaces the previous shipped
+CenterView default, including existing Gold profiles. Other personal R3
+actions and subsequent remapping are preserved. B remains crouch and Select
+remains the translator.
 
 The default stick deadzones are 0.08 left and 0.10 right; trigger deadzone is
 0.12. Movement and triggers use the v200 press/release hysteresis. Right-stick

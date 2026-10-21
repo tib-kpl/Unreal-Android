@@ -45,6 +45,7 @@ final class Unreal226Config {
                 String personal = (fallback.isFile() ? read(fallback) : "") + "\n" + (active.isFile() ? read(active) : "");
                 current = GoldControllerProfile.importPersonal(current, personal, profile, baseline);
             }
+            current = ControllerObjectiveProfile.migrate(current);
             write(user, current);
             String text;
             if (ini.isFile()) {

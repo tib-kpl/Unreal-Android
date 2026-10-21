@@ -55,6 +55,22 @@ public class GoldConfigTest {
         String goldCustom = Unreal226Config.upsert(migrated, "Engine.Input", "Joy9", "InventoryActivate");
         goldCustom = GoldControllerProfile.importPersonal(goldCustom, personal, profile, stock);
         check("InventoryActivate".equals(value(goldCustom, "Joy9")), "Gold custom binding was overwritten by v200");
+        for (String old : new String[] { "", "Joy9=", "Joy9=CenterView", "joy9=centerview" }) {
+            String objective = ControllerObjectiveProfile.migrate("[Engine.Input]\nJoy2=Duck\nJoy5=ActivateTranslator\n" + old + "\n");
+            check("ActivateHint".equals(value(objective, "Joy9")), "Missing R3 objective upgrade: " + old);
+            check("Duck".equals(value(objective, "Joy2")), "Objective upgrade changed crouch");
+            check("ActivateTranslator".equals(value(objective, "Joy5")), "Objective upgrade changed translator");
+            check(objective.equals(ControllerObjectiveProfile.migrate(objective)), "Objective upgrade repeats");
+            String cleared = Unreal226Config.upsert(objective, "Engine.Input", "Joy9", "");
+            check(cleared.equals(ControllerObjectiveProfile.migrate(cleared)), "Later R3 removal was overwritten");
+        }
+        String customObjective = "[Engine.Input]\nJoy9=InventoryActivate\n";
+        check("InventoryActivate".equals(value(ControllerObjectiveProfile.migrate(customObjective), "Joy9")), "Custom R3 action overwritten");
+        String oldGold = Unreal226Config.upsert(migrated, "Engine.Input", "Joy9", "CenterView");
+        oldGold = Unreal226Config.upsert(oldGold, "Android", "PersonalControllerProfile", "1");
+        check("ActivateHint".equals(value(ControllerObjectiveProfile.migrate(oldGold), "Joy9")), "Existing Gold profile did not get objective");
+        String personalBlank = GoldControllerProfile.importPersonal(migrated, "[Engine.Input]\nJoy9=\n", profile, stock);
+        check("ActivateHint".equals(value(ControllerObjectiveProfile.migrate(personalBlank), "Joy9")), "Blank v200 import disabled objective");
         String paths = "[Core.System]\r\nPaths=..\\Maps\\*.unr\r\nSavePath=..\\Save\r\nName=Keep\\This\r\n";
         paths = Unreal226Config.fixPathSeparators(paths);
         check(paths.contains("Paths=../Maps/*.unr") && paths.contains("SavePath=../Save"), "Windows paths were not normalized");
@@ -77,6 +93,6 @@ public class GoldConfigTest {
         String muted=pcAudio+"[Audio.GenericAudioSubsystem]\nChannels=16\nMusicVolume=0\nSoundVolume=0\n";
         check(GoldAudioProfile.migrate(muted).contains("MusicVolume=0"), "Intentional mute overwritten");
         check(GoldAudioProfile.migrate(muted).contains("SoundVolume=0"), "Intentional effects mute overwritten");
-        System.out.println("PASS: " + verified + " defaults, personal v200 bindings, Gold customization preservation, display/gamma, paths and audio migration");
+        System.out.println("PASS: " + verified + " defaults, personal v200 bindings, Gold customization preservation, shared R3 objective upgrade, display/gamma, paths and audio migration");
     }
 }

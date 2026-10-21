@@ -397,6 +397,13 @@ final class UnrealDataPaths {
                     "[DefaultPlayer]\nName=Player\nClass=UnrealShare.MaleOne\n\n[Engine.Input]\n");
             ensureConfigFile(systemDir, "Unreal.ini", new String[] { "Default.ini", "Unreal.ini.default" }, "");
             ensureAndroidControllerDirectPatch(systemDir);
+            for (String name : new String[] { "Unreal.ini", "User.ini" }) {
+                File input = new File(systemDir, name);
+                if (!input.isFile()) continue;
+                String before = readLatin1(input);
+                String after = ControllerObjectiveProfile.migrate(before);
+                if (!after.equals(before)) writeLatin1(input, after);
+            }
             ensureGameLanguage(context, systemDir); // UNREAL_ANDROID_FRENCH_LANGUAGE_V221
             applyOuyaResolutionDefaultOnceV212(systemDir); // UNREAL_ANDROID_OUYA_960_DEFAULT_V212
             disableStaleHrtfOnceV222(systemDir); // UNREAL_ANDROID_HRTF_MIGRATION_V222
@@ -792,7 +799,7 @@ final class UnrealDataPaths {
                     "Joy4=Walking\n" +
                     "Joy5=ActivateTranslator\n" +
                     "Joy8=Duck\n" +
-                    "Joy9=CenterView\n" +
+                    "Joy9=ActivateHint\n" +
                     "Joy10=PrevWeapon\n" +
                     "Joy11=NextWeapon\n" +
                     "Joy12=AltFire\n" +

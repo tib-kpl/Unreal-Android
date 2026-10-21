@@ -117,7 +117,10 @@ working unchanged.
   and matching cached translator texts.
 - **Personal v200 controls** – Gold imports the active v200 bindings once,
   preserving any buttons already customized in Gold. L3 can crouch as well as
-  serve as the modifier for the existing combinations.
+  serve as the modifier for the existing combinations. R3 (right-stick click)
+  shows the objective/hint in both v200 and Gold; B crouches and Select opens
+  the translator. Existing installs receive the R3 shortcut once, preserving
+  other personal R3 actions and later remapping.
 - **Audio, saves and rendering** – Gold's audio settings are migrated to the
   Android audio driver, saving and loading work on 64-bit devices, meshes keep
   their full detail, and the intro flyby is smooth with its start message

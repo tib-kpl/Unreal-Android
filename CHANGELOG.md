@@ -3,6 +3,13 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.3
+
+- R3 (right-stick click) shows the objective/hint in both v200 and Gold.
+  Existing installs upgrade an empty R3 or the old shipped CenterView default
+  once, preserving other personal R3 actions and subsequent remapping.
+  B remains crouch and Select remains the translator.
+
 ## 2.4.2
 
 - Readable Gold menus and HUD at high resolutions: adaptive canvas size,

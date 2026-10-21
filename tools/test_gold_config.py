@@ -28,7 +28,7 @@ def main():
         (work / "UnrealGold.java").write_text('package com.ast.unreal; class UnrealGold { static void installConsolePatch(android.content.Context context, java.io.File system) throws java.io.IOException {} static float interfaceSize(android.content.Context c) { return 1f; } static float gamma(android.content.Context c) { return 1.6f; } static boolean isGoldData(java.io.File f) { return false; } }')
         (work / "UnrealDataPaths.java").write_text('package com.ast.unreal; class UnrealDataPaths { static java.io.File findBestUnrealRoot(android.content.Context c) { return new java.io.File("missing"); } static boolean hasRequiredData(java.io.File f) { return false; } }')
         subprocess.run([javac, "-cp", str(android), "-d", str(work), str(sources / "Unreal226Config.java"),
-                        str(sources / "GoldControllerProfile.java"), str(sources / "GoldAudioProfile.java"), str(work / "Unreal226Activity.java"),
+                        str(sources / "GoldControllerProfile.java"), str(sources / "ControllerObjectiveProfile.java"), str(sources / "GoldAudioProfile.java"), str(work / "Unreal226Activity.java"),
                         str(work / "UnrealGold.java"), str(work / "UnrealDataPaths.java"), str(root / "tools/tests/GoldConfigTest.java")], check=True)
         subprocess.run([java, "-cp", str(work) + os.pathsep + str(android), "com.ast.unreal.GoldConfigTest",
                         str(root / "source/app/src/main/assets/ue1_config/User.ini"),
