@@ -7,6 +7,7 @@ static FLOAT GoldPadFiltered[2] = {0};
 static UBOOL GoldPadActive[2] = {0};
 static INT GoldPadMenu = -1;
 static UBOOL GoldPadDigitalTriggers[2]={0};
+static UBOOL GoldPadCaptureArmed=0;
 
 static UBOOL GoldPadInMenu( UNSDLViewport* V )
 {
@@ -186,12 +187,23 @@ static void GoldPadReset( UNSDLViewport* V )
     appMemset(GoldPadActive, 0, sizeof(GoldPadActive));
 }
 
+static UBOOL GoldPadCapturing( UNSDLViewport* V )
+{
+    UObject* Console=(UObject*)V->Console;
+    return Console && Console->GetStateFrame() && Console->GetStateFrame()->StateNode
+        && Console->GetStateFrame()->StateNode->GetFName()=="KeyMenuing";
+}
+
 static void GoldPadSyncMenu( UNSDLViewport* V )
 {
-    INT Menu = GoldPadInMenu(V) ? 1 : 0;
+    INT Menu = GoldPadCapturing(V) ? 2 : GoldPadInMenu(V) ? 1 : 0;
     if( Menu != GoldPadMenu )
     {
+        FLOAT Axes[SDL_CONTROLLER_AXIS_MAX];
+        appMemcpy(Axes,GoldPadAxes,sizeof(Axes));
         GoldPadReset(V);
+        if( Menu==2 ) appMemcpy(GoldPadAxes,Axes,sizeof(Axes));
+        GoldPadCaptureArmed=0;
         GoldPadMenu = Menu;
     }
 }
@@ -208,7 +220,7 @@ static void GoldPadButton( UNSDLViewport* V, INT Button, UBOOL Down )
         return;
     }
     if( GoldPadButtons[Button] ) return;
-    const UBOOL UI = GoldPadMenu != 0;
+    const UBOOL UI = GoldPadMenu == 1;
     INT Key = IK_None;
     switch( Button )
     {
@@ -285,21 +297,40 @@ static void GoldPadTick( UNSDLViewport* V )
     GoldPadSyncMenu(V);
     UE1AndroidUpdateInfiniteTogglesV21(V->Actor);
     if( V->bShowWindowsMouse ) return; // UWindow retains its pointer/capture controls.
-    const UBOOL UI=GoldPadMenu!=0;
+    const UBOOL UI=GoldPadMenu==1;
+    const UBOOL Capture=GoldPadMenu==2;
+    if( Capture && !GoldPadCaptureArmed )
+    {
+        UBOOL Neutral=1;
+        for(INT Axis=0;Axis<SDL_CONTROLLER_AXIS_MAX;++Axis)
+            if( Abs(GoldPadAxes[Axis])>0.25f ) Neutral=0;
+        GoldPadCaptureArmed=Neutral;
+        if( !Neutral ) return;
+    }
     FLOAT LeftDead=0.08f, RightDead=0.10f, TriggerDead=0.12f, Scale=1.0f;
     GConfig->GetFloat(TEXT("NSDLDrv.NSDLClient"),TEXT("AndroidNativeLeftStickDeadzone"),LeftDead);
     GConfig->GetFloat(TEXT("NSDLDrv.NSDLClient"),TEXT("AndroidNativeRightStickDeadzone"),RightDead);
     GConfig->GetFloat(TEXT("NSDLDrv.NSDLClient"),TEXT("AndroidNativeTriggerDeadzone"),TriggerDead);
     GConfig->GetFloat(TEXT("NSDLDrv.NSDLClient"),TEXT("AndroidNativeRightStickScale"),Scale);
     const FLOAT LX=GoldPadDeadzone(GoldPadAxes[0],LeftDead), LY=GoldPadDeadzone(GoldPadAxes[1],LeftDead);
-    GoldPadDirection(V,UI ? IK_Left : IK_UnknownD8,-LX,UI);
-    GoldPadDirection(V,UI ? IK_Right : IK_UnknownD9,LX,UI);
-    GoldPadDirection(V,UI ? IK_Up : IK_UnknownDA,-LY,UI);
-    GoldPadDirection(V,UI ? IK_Down : IK_UnknownDF,LY,UI);
+    GoldPadDirection(V,UI ? IK_Left : IK_UnknownD8,-LX,UI,Capture);
+    GoldPadDirection(V,UI ? IK_Right : IK_UnknownD9,LX,UI,Capture);
+    GoldPadDirection(V,UI ? IK_Up : IK_UnknownDA,-LY,UI,Capture);
+    GoldPadDirection(V,UI ? IK_Down : IK_UnknownDF,LY,UI,Capture);
     if( UI ) return;
     GoldPadKey(V,IK_Joy12,GoldPadDeadzone(Max(GoldPadAxes[4],GoldPadDigitalTriggers[0] ? 1.0f : 0.0f),TriggerDead)>(GoldPadKeys[IK_Joy12] ? 0.125f : 0.25f));
     GoldPadKey(V,IK_Joy13,GoldPadDeadzone(Max(GoldPadAxes[5],GoldPadDigitalTriggers[1] ? 1.0f : 0.0f),TriggerDead)>(GoldPadKeys[IK_Joy13] ? 0.125f : 0.25f));
     const INT Negative[2]={IK_Joy14,IK_Joy16}, Positive[2]={IK_Joy15,IK_UnknownEA};
+    if( Capture )
+    {
+        for(INT Axis=0;Axis<2;++Axis)
+        {
+            FLOAT Value=GoldPadDeadzone(GoldPadAxes[Axis+2],RightDead);
+            GoldPadDirection(V,Negative[Axis],-Value,0,1);
+            GoldPadDirection(V,Positive[Axis],Value,0,1);
+        }
+        return;
+    }
     const FLOAT Sensitivity=V->Actor ? V->Actor->MouseSensitivity : 3.0f;
     const FLOAT Factor=Clamp(Sensitivity/4.0f,0.20f,3.0f)*Clamp(Scale,0.05f,2.0f);
     for( INT Axis=0; Axis<2; ++Axis )

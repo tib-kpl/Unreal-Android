@@ -46,7 +46,9 @@ removal release held actions; Start is a single menu toggle.
 
 `Android226User.ini` receives the v200 controller bindings once. The migration
 replaces stock PC Gold bindings, fills missing ones, and preserves custom
-bindings, mouse sensitivity and player settings. Original `User.ini` and
+bindings, mouse sensitivity and player settings. Classic Customize Controls
+captures raw controller buttons, triggers and stick directions while ordinary
+menu navigation keeps A/B and arrow shortcuts. Original `User.ini` and
 `DefUser.ini` remain untouched. Later control remapping is retained.
 
 | Control | v200 / Gold action |
