@@ -839,7 +839,7 @@ void UObject::LoadConfig( UBOOL Propagate, UClass* Class, const TCHAR* InFilenam
 // Load localized text.
 //warning: Must be safe on class-default metaobjects.
 //
-void UObject::LoadLocalized( UBOOL Propagate, UClass* Class )
+void UObject::LoadLocalized( UBOOL Propagate, UClass* Class, const TCHAR* PackageOverride )
 {
 	guard(UObject::LoadLocalized);
 	checkSlow(GetClass());
@@ -850,8 +850,8 @@ void UObject::LoadLocalized( UBOOL Propagate, UClass* Class )
 	if( GIsEditor )
 		return;
 	if( Propagate && Class->GetSuperClass() )
-		LoadLocalized( Propagate, Class->GetSuperClass() );
-	const TCHAR* PackageName = GetIndex()==INDEX_NONE ? Class->GetOuter()->GetName() : GetOuter()->GetName();
+		LoadLocalized( Propagate, Class->GetSuperClass(), PackageOverride );
+	const TCHAR* PackageName = PackageOverride ? PackageOverride : GetIndex()==INDEX_NONE ? Class->GetOuter()->GetName() : GetOuter()->GetName();
 	const TCHAR* Section     = GetIndex()==INDEX_NONE ? Class->GetName()             : GetName();
 	for( TFieldIterator<UProperty> It(Class); It; ++It )
 	{

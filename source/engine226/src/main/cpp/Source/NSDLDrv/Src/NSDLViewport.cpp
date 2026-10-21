@@ -5692,6 +5692,10 @@ while( SDL_PollEvent( &Ev ) )
                 }
                 break;
             }
+            case SDL_USEREVENT + 0x229:
+                GConfig->SetFloat(TEXT("Android"),TEXT("UIScaleMultiplier"),(PTRINT)Ev.user.data1/1000.f);
+                GConfig->SetFloat(TEXT("Android"),TEXT("Gamma"),(PTRINT)Ev.user.data2/1000.f);
+                break;
             case SDL_USEREVENT + 0x228:
                 GoldPadReset(this);
                 break;

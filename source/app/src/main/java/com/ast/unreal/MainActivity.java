@@ -285,6 +285,24 @@ public class MainActivity extends Activity {
     }
 
     private void launchGold(File root) {
+        if ("frt".equals(UnrealGold.language(this)) && UnrealDataPaths.needsGoldFrenchLocalization(root)) {
+            showBusyScreen("Traduction française d’Unreal Gold",
+                    "Téléchargement des textes manquants (traducteur, objectifs, menus)…");
+            new Thread(() -> {
+                UnrealDataPaths.downloadFrenchLocalization(root);
+                runOnUiThread(() -> {
+                    if (UnrealDataPaths.needsGoldFrenchLocalization(root))
+                        android.widget.Toast.makeText(this, "Certains textes français restent indisponibles. Vérifiez la connexion.",
+                                android.widget.Toast.LENGTH_LONG).show();
+                    startGoldActivity(root);
+                });
+            }, "GoldFrenchLocalization").start();
+            return;
+        }
+        startGoldActivity(root);
+    }
+
+    private void startGoldActivity(File root) {
         Intent intent = new Intent(this, Unreal226Activity.class);
         intent.putExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT, root.getAbsolutePath());
         startActivity(intent);

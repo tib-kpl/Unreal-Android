@@ -503,13 +503,29 @@ final class UnrealDataPaths {
      * files to the Windows-1252 bytes the 8-bit v200 engine reads.  Existing
      * files (e.g. from a retail French install) are never overwritten.
      */
+    /** Gold may have been installed in English, then switched to French later. */
+    static boolean needsGoldFrenchLocalization(File root) {
+        File system = new File(root, "System"), maps = new File(root, "Maps");
+        for (String name : new String[]{"Core", "Engine", "UnrealShare", "UnrealI", "UPak", "UMenu", "UWindow"})
+            if (findCaseInsensitive(system, name + ".frt") == null) return true;
+        for (String map : FRENCH_LOCALIZATION_MAPS) {
+            if ((findCaseInsensitive(maps, map + ".unr") != null
+                    || findCaseInsensitive(new File(maps, "UPak"), map + ".unr") != null)
+                    && findCaseInsensitive(system, map + ".frt") == null) return true;
+        }
+        return false;
+    }
+
     static boolean downloadFrenchLocalization(File root) {
         File systemDir = new File(root, "System");
         File mapsDir = new File(root, "Maps");
         ArrayList<String> names = new ArrayList<>();
         for (String name : FRENCH_LOCALIZATION_FILES) names.add(name + ".frt");
+        boolean gold = UnrealGold.isGoldData(root);
+        if (gold) for (String name : new String[]{"UPak", "UMenu", "UWindow"}) names.add(name + ".frt");
         for (String map : FRENCH_LOCALIZATION_MAPS) {
-            if (findCaseInsensitive(mapsDir, map + ".unr") != null) names.add(map + ".frt");
+            if (findCaseInsensitive(mapsDir, map + ".unr") != null
+                    || (gold && findCaseInsensitive(new File(mapsDir, "UPak"), map + ".unr") != null)) names.add(map + ".frt");
         }
         int written = 0;
         boolean networkError = false;

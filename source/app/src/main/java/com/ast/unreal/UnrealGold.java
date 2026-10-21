@@ -140,6 +140,22 @@ final class UnrealGold {
         prefs(context).edit().putInt(KEY_TOUCH_OPACITY, percent).commit();
     }
 
+    static float interfaceSize(Context context) {
+        return Math.max(.75f, Math.min(1.25f, prefs(context).getFloat("interface_size", 1f)));
+    }
+
+    static void interfaceSize(Context context, float value) {
+        prefs(context).edit().putFloat("interface_size", value).commit();
+    }
+
+    static float gamma(Context context) {
+        return Math.max(.75f, Math.min(3f, prefs(context).getFloat("gamma", 1.6f)));
+    }
+
+    static void gamma(Context context, float value) {
+        prefs(context).edit().putFloat("gamma", value).commit();
+    }
+
     private static SharedPreferences prefs(Context context) {
         // The launcher and the :unreal226 game process both write these.
         return context.getSharedPreferences(PREFS, Context.MODE_MULTI_PROCESS);

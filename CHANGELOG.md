@@ -3,6 +3,20 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.2
+
+- Readable Gold menus and HUD at high resolutions: adaptive canvas size,
+  restored large French fonts and correct accented glyphs in the stock fonts.
+- Classic menu/HUD size and gamma controls in Android settings, applied when
+  returning to the game. Gamma lifts shadow detail separately from brightness.
+- Missing French texts are downloaded when starting Gold, including Return to
+  Na Pali maps. Existing retail localization files are preserved.
+- Loading a save restores map translations from the original map name, and
+  updates cached translator messages and hints when their source text matches.
+- Import the player's actual v200 bindings from its active Unreal.ini, while
+  preserving buttons already customized in Gold. L3 retains its ordinary
+  binding (crouch by default) alongside its modifier combinations.
+
 ## 2.4.1
 
 - Android settings gear is now available with both v200 and Gold game files,

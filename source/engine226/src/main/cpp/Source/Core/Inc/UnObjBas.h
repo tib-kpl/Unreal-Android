@@ -522,7 +522,7 @@ public:
 	UState* FindState( FName InName );
 	void SaveConfig( DWORD Flags=CPF_Config, const TCHAR* Filename=NULL );
 	void LoadConfig( UBOOL Propagate=0, UClass* Class=NULL, const TCHAR* Filename=NULL );
-	void LoadLocalized( UBOOL Propagate=0, UClass* Class=NULL );
+	void LoadLocalized( UBOOL Propagate=0, UClass* Class=NULL, const TCHAR* PackageOverride=NULL );
 	void InitClassDefaultObject( UClass* InClass );
 	void ProcessInternal( FFrame& TheStack, void*const Result );
 	void ParseParms( const TCHAR* Parms );

@@ -21,6 +21,7 @@ varying lowp vec4 vVtxFog;
 #endif
 
 uniform lowp float uBrightness;
+uniform mediump float uGamma;
 
 #ifdef SF_Texture0
 uniform sampler2D uTexture0;
@@ -104,6 +105,8 @@ void main()
 #endif
 
 	Out.rgb *= 0.5 + uBrightness;
+    // Gamma lifts shadow detail while preserving black and alpha coverage.
+    Out.rgb=pow(clamp(Out.rgb,0.0,1.0),vec3(1.0/uGamma));
 
 	gl_FragColor = Out;
 }

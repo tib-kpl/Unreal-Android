@@ -34,7 +34,18 @@ final class Unreal226Config {
                 while ((count = input.read(buffer)) > 0) bytes.write(buffer, 0, count);
                 profile = bytes.toString("ISO-8859-1");
             }
-            write(user, GoldControllerProfile.migrate(current, baseline, profile));
+            current = GoldControllerProfile.migrate(current, baseline, profile);
+            File v200Root = UnrealDataPaths.findBestUnrealRoot(context);
+            if (!UnrealGold.isGoldData(v200Root) && UnrealDataPaths.hasRequiredData(v200Root)) {
+                File v200System = new File(v200Root, "System");
+                File active = new File(v200System, "Unreal.ini");
+                File fallback = new File(v200System, "User.ini");
+                // v200's config cache uses Unreal.ini for Engine.Input; its
+                // User.ini is only a fallback, and may still contain shipped defaults.
+                String personal = (fallback.isFile() ? read(fallback) : "") + "\n" + (active.isFile() ? read(active) : "");
+                current = GoldControllerProfile.importPersonal(current, personal, profile, baseline);
+            }
+            write(user, current);
             String text;
             if (ini.isFile()) {
                 text = read(ini);
@@ -57,7 +68,7 @@ final class Unreal226Config {
             // Classic Unreal menus (as with the v200 data) or the UMenu windows of Unreal Gold.
             text = upsert(text, "Engine.Engine", "Console", classicMenu ? "UnrealGoldAndroid.ClassicConsole" : "UPak.UPakConsole");
             // Read by the 226 engine: logical 2D scale of the classic menus and the HUD.
-            if (!text.contains("[Android]")) text = upsert(text, "Android", "UIScale", screenHeight > 540 ? "2.000000" : "1.000000");
+            text = displaySettings(text, UnrealGold.interfaceSize(context), UnrealGold.gamma(context));
             text = upsert(text, "Android", "ClassicMenu", classicMenu ? "True" : "False");
             if (!ini.isFile()) {
                 text = upsert(text, "NSDLDrv.NSDLClient", "StartupFullscreen", "True");
@@ -71,6 +82,19 @@ final class Unreal226Config {
         } catch (IOException e) {
             Log.e(TAG, "Cannot prepare " + ini, e);
         }
+    }
+
+    static String displaySettings(String text, float size, float gamma) {
+        java.util.Map<String, String> android = GoldControllerProfile.section(text, "Android");
+        if (!"2".equals(android.get("displayprofile"))) {
+            float old = 0f;
+            try { old = Float.parseFloat(android.get("uiscale")); } catch (RuntimeException ignored) { }
+            // Replace only the old generated defaults; retain an explicit custom scale.
+            if (old == 0f || old == 1f || old == 2f) text = upsert(text, "Android", "UIScale", "0");
+            text = upsert(text, "Android", "DisplayProfile", "2");
+        }
+        text = upsert(text, "Android", "UIScaleMultiplier", Float.toString(Math.max(.75f, Math.min(1.25f, size))));
+        return upsert(text, "Android", "Gamma", Float.toString(Math.max(.75f, Math.min(3f, gamma))));
     }
 
     static String fixPathSeparators(String text) {

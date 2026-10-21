@@ -164,16 +164,16 @@ static FLOAT UnrealAndroidConfiguredCanvasScale( UViewport* Viewport )
 	// renders the original HUD menus. Only the Windows mode uses pixel sizing.
 	UBOOL bClassicMenu = 0;
 	GConfig->GetBool( TEXT("Android"), TEXT("ClassicMenu"), bClassicMenu );
-	if( !bClassicMenu )
+	if( !bClassicMenu && Viewport->bShowWindowsMouse )
 		return 1.f;
-	static FLOAT Configured = -1.f;
-	if( Configured < 0.f )
-	{
-		Configured = 1.f;
-		GConfig->GetFloat( TEXT("Android"), TEXT("UIScale"), Configured );
-		Configured = Clamp( Configured, 1.f, 4.f );
-	}
-	return Configured;
+	FLOAT Configured=0.f, Multiplier=1.f;
+	GConfig->GetFloat(TEXT("Android"),TEXT("UIScale"),Configured);
+	GConfig->GetFloat(TEXT("Android"),TEXT("UIScaleMultiplier"),Multiplier);
+	// A constant logical height keeps HUD and translator text readable at
+	// 720p, 1080p and above. Bound the layout so original menus still fit.
+	if( Configured<=0.f ) Configured=Viewport->SizeY/360.f;
+	const FLOAT Limit=Max(1.f,Min(Viewport->SizeY/300.f,Viewport->SizeX/400.f));
+	return Clamp(Configured*Clamp(Multiplier,0.75f,1.25f),1.f,Limit);
 }
 #endif
 
@@ -470,10 +470,49 @@ static UBOOL UT99AndroidLoadCyrillicAtlas()
 	return 1;
 }
 
+#if UNREAL_GOLD_226
+// Retail small/medium font sheets use DOS glyph positions, while the French
+// files contain Windows-1252 bytes. Decorative fonts have no accented cells.
+static INT GoldFontGlyph(UFont* Font,INT C)
+{
+    if(C<0x80 || !Font || appStricmp(UObject::GetLanguage(),TEXT("frt"))) return C;
+    if(C==0xa0) return ' ';
+    if(C==0xab || C==0xbb || C==0x93 || C==0x94) return '"';
+    if(C==0x91 || C==0x92) return '\'';
+    if(C==0x9c) return 'o';
+    if(C==0x8c) return 'O';
+    const TCHAR* Name=Font->GetName();
+    if(!appStricmp(Name,TEXT("SmallFont")) || !appStricmp(Name,TEXT("MedFont")))
+    {
+        switch(C)
+        {
+            case 0xc0:return 0xb7; case 0xc2:return 0xb6; case 0xc7:return 0x80;
+            case 0xc8:return 0xd4; case 0xc9:return 0x90; case 0xca:return 0xd2;
+            case 0xcb:return 0xd3; case 0xce:return 0xd7; case 0xcf:return 0xd8;
+            case 0xd4:return 0xe2; case 0xd9:return 0xeb; case 0xdb:return 0xea;
+            case 0xdc:return 0x9a; case 0xe0:return 0x85; case 0xe2:return 0x83;
+            case 0xe7:return 0x87; case 0xe8:return 0x8a; case 0xe9:return 0x82;
+            case 0xea:return 0x88; case 0xeb:return 0x89; case 0xee:return 0x8c;
+            case 0xef:return 0x8b; case 0xf4:return 0x93; case 0xf9:return 0x97;
+            case 0xfb:return 0x96; case 0xfc:return 0x81;
+        }
+    }
+    if(C>=0xc0 && (appStrstr(Name,TEXT("Large")) || appStrstr(Name,TEXT("Big")) || appStrstr(Name,TEXT("Tiny"))))
+    {
+        const char* Fold="AAAAAAACEEEEIIIIDNOOOOOxOUUUUYTsaaaaaaaceeeeiiiidnooooo/ouuuuyty";
+        C=Fold[C-0xc0];
+    }
+    return C;
+}
+#endif
+
 static void UT99AndroidGetStockCharSize( UFont* Font, TCHAR InCh, INT& Width, INT& Height )
 {
 	Width=Height=0;
 	if( !Font ) return;
+#if UNREAL_GOLD_226
+    InCh=(TCHAR)GoldFontGlyph(Font,(TCHARU)InCh);
+#endif
 	INT Ch=Font->GlyphIndex((TCHARU)InCh);
 	INT Page=Ch/Font->CharactersPerPage;
 	INT Index=Ch-Page*Font->CharactersPerPage;
@@ -623,6 +662,9 @@ static inline INT DrawString
 #endif
 
 		// Process character if it's valid.
+#if UNREAL_GOLD_226
+        Ch=GoldFontGlyph(Font,Ch);
+#endif
 		Ch = Font->GlyphIndex(Ch);
 		INT NewPage = Ch / Font->CharactersPerPage;
 		UTexture* Tex;
@@ -741,8 +783,11 @@ void VARARGS UCanvas::WrappedPrint( ERenderStyle Style, INT& XL, INT& YL, UFont*
 	guard(UCanvas::WrappedPrint);
 	if( ClipX<0 || ClipY<0 )
 		return;
-	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT")) )
-		Font = MedFont;//BigFont;!!
+	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT"))
+#if UNREAL_GOLD_226
+        && appStricmp(UObject::GetLanguage(),TEXT("frt"))
+#endif
+    ) Font=MedFont;
 	check(Font);
 	FPlane DrawColor = Color.Plane();
 
@@ -1147,8 +1192,11 @@ void UCanvas::execDrawTextClipped( FFrame& Stack, RESULT_DECL )
 		return;
 	}
 
-	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT")) )
-		Font = MedFont;//BigFont;//!!
+	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT"))
+#if UNREAL_GOLD_226
+        && appStricmp(UObject::GetLanguage(),TEXT("frt"))
+#endif
+    ) Font=MedFont;
 	check(Font);
 
 	// Generate flags.

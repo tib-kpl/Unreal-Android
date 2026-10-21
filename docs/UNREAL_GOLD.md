@@ -44,14 +44,18 @@ including BRAKE/GAS, digital-only triggers and D-pad buttons/hats. Events are
 queued to the engine thread. Pause, focus loss, menu/level changes and device
 removal release held actions; Start is a single menu toggle.
 
-`Android226User.ini` receives the v200 controller bindings once. The migration
-replaces stock PC Gold bindings, fills missing ones, and preserves custom
-bindings, mouse sensitivity and player settings. Classic Customize Controls
+`Android226User.ini` receives the shipped v200 controller defaults once. When
+v200 data is available, a second migration imports its actual bindings from
+`System/Unreal.ini` (the v200 engine's active input configuration), with
+`User.ini` as a fallback. Gold bindings that already differ from the defaults
+are preserved, along with sensitivity and player settings. Classic Customize Controls
 captures raw controller buttons, triggers and stick directions while ordinary
 menu navigation keeps A/B and arrow shortcuts. Original `User.ini` and
 `DefUser.ini` remain untouched. Later control remapping is retained.
 
-| Control | v200 / Gold action |
+The following defaults apply when no personal v200 profile is available:
+
+| Control | Gold fallback action |
 | --- | --- |
 | Left stick | Move / strafe |
 | Right stick | Look, with the v200 linear response and smoothing |
@@ -62,6 +66,7 @@ menu navigation keeps A/B and arrow shortcuts. Original `User.ini` and
 | Select | Translator; back in menus |
 | Start / Mode | Open / close menu |
 | R3 | Center view |
+| L3 | Its configured action, crouch by default |
 | L3 + A / L3 + Y | Toggle infinite ammo / health, as in v200 |
 | D-pad left / right | Previous / next weapon |
 | D-pad up / down | Previous / next inventory item |
@@ -171,3 +176,38 @@ folder, which must be writable. ZIP import still extracts into app storage.
 Validated on the Thor with a separate v200 test copy: gear during the intro,
 touch mode, layout editing, restart, data manager, selection of an external
 folder and reuse of that folder after force-stopping the app.
+
+## High resolution display and gamma
+
+The classic canvas uses an automatic logical height of 360, so UI text retains
+its relative size as resolution changes. Android settings offer 75–125 % size;
+the native bounds keep the original menus within the viewport. Old generated
+fixed scales migrate to automatic sizing, while explicit custom scales remain.
+The windowed UMenu keeps its own GUI scale; its gameplay HUD uses the adaptive
+canvas too. Size changes apply on return from settings, on the engine thread.
+
+French previously replaced every large/big canvas font with MedFont. The engine
+now keeps the intended font size: small/medium French accents use the stock DOS
+glyph positions, while unsupported accents in decorative fonts use plain
+letters. Measurement and rendering use the same glyph mapping.
+
+Gold's gamma setting ranges from 0.75 to 3.0, default 1.6. It applies a power
+curve to RGB after brightness, preserving black and alpha coverage. Gamma 1.0
+retains the previous brightness response. Returning from Android settings
+updates it without restarting or touching gameplay progress.
+
+## French map texts and saves
+
+At Gold startup, French selection checks the localization files for installed
+maps in both Maps and Maps/UPak, plus the Gold UI packages. Missing files are
+downloaded from OldUnreal's localization repository; existing retail files
+remain intact. An unavailable download is reported and startup can continue.
+
+SaveN packages retain the original map URL. Their localized actor properties
+are reloaded using that original map name instead of searching for SaveN.frt.
+Cached translator messages/hints that match a translated source string are
+updated too, allowing older English saves to resume with French map texts.
+
+On the Thor test copy: confirmed B and L3 crouch press/release, import of a
+v200 R3 objective binding, French actor messages and restoration from a Vortex2
+save, automatic download of a missing DuskFalls.frt, and live gamma adjustment.

@@ -1473,6 +1473,50 @@ ULevel* UGameEngine::LoadMap( const FURL& URL, UPendingLevel* Pending, const TMa
 	else check(!GLevel->NetDriver);
 	unguard;
 
+#if UNREAL_GOLD_226
+    // Saved actors belong to SaveN, but their translations still belong to the
+    // original map package. Restore them before play resumes, including cached
+    // translator messages/hints that were copied before switching languages.
+    if(URL.GetOption(TEXT("load"),NULL) && appStricmp(UObject::GetLanguage(),TEXT("int")))
+    {
+        FString Map=GLevel->URL.Map;
+        const TCHAR* Name=*Map;
+        for(const TCHAR* P=Name;*P;++P) if(*P=='/' || *P=='\\') Name=P+1;
+        FString Package(Name);
+        INT Dot=Package.InStr(TEXT("."));
+        if(Dot!=INDEX_NONE) Package=Package.Left(Dot);
+        TMap<FString,FString> Translations;
+        for(INT i=0;i<GLevel->Actors.Num();++i)
+        {
+            AActor* Actor=GLevel->Actors(i);
+            if(!Actor || !(Actor->GetClass()->ClassFlags & CLASS_Localized)) continue;
+            for(TFieldIterator<UStrProperty> It(Actor->GetClass());It;++It)
+            {
+                if(!(It->PropertyFlags & CPF_Localized) || It->ArrayDim!=1) continue;
+                FString Before=*(FString*)((BYTE*)Actor+It->Offset);
+                const TCHAR* After=Localize(Actor->GetName(),It->GetName(),*Package,NULL,1);
+                if(Before.Len() && *After && Before!=After) Translations.Set(*Before,After);
+            }
+            Actor->LoadLocalized(0,NULL,*Package);
+        }
+        for(INT i=0;i<GLevel->Actors.Num();++i)
+        {
+            AActor* Actor=GLevel->Actors(i);
+            if(!Actor || appStricmp(Actor->GetClass()->GetName(),TEXT("Translator"))) continue;
+            const TCHAR* Fields[]={TEXT("NewMessage"),TEXT("OldMessage"),TEXT("OlderMessage"),TEXT("Hint")};
+            for(INT j=0;j<4;++j)
+            {
+                UStrProperty* Prop=FindField<UStrProperty>(Actor->GetClass(),Fields[j]);
+                if(!Prop) continue;
+                FString& Value=*(FString*)((BYTE*)Actor+Prop->Offset);
+                FString* Translated=Translations.Find(Value);
+                if(Translated) Value=*Translated;
+            }
+        }
+        debugf(NAME_Localization,TEXT("Gold save localization restored from %s.%s"),*Package,UObject::GetLanguage());
+    }
+#endif
+
 	// Set level info.
 	guard(InitLevel);
 	if( !URL.GetOption(TEXT("load"),NULL) )

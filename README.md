@@ -107,6 +107,17 @@ working unchanged.
 - **Controllers and touch** – physical controllers use the v200 bindings and
   stick response; the RetroTouch on-screen controller is available in menus and
   in game, and stays out of the way in the intro and the cutscenes.
+- **Readable Gold interface** – classic menus and the HUD scale with the
+  resolution, and French retains the large menu fonts. The Android settings
+  provide interface size and gamma controls, applied when returning to the
+  game. Gamma reveals shadow detail separately from the brightness setting.
+- **French game texts** – missing French menus, translator messages and hints
+  are downloaded on startup, including Return to Na Pali. Existing retail
+  translations are preserved; loading an older save restores map translations
+  and matching cached translator texts.
+- **Personal v200 controls** – Gold imports the active v200 bindings once,
+  preserving any buttons already customized in Gold. L3 can crouch as well as
+  serve as the modifier for the existing combinations.
 - **Audio, saves and rendering** – Gold's audio settings are migrated to the
   Android audio driver, saving and loading work on 64-bit devices, meshes keep
   their full detail, and the intro flyby is smooth with its start message

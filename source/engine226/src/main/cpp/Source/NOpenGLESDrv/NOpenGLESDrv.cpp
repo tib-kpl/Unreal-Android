@@ -322,6 +322,7 @@ UNOpenGLESRenderDevice::UNOpenGLESRenderDevice()
 	UseBGRA = true;
 	WidescreenFOV = false;
 	CurrentBrightness = -1.f;
+	CurrentGamma = -1.f;
 }
 
 UBOOL UNOpenGLESRenderDevice::Init( UViewport* InViewport, INT NewX, INT NewY, INT NewColorBytes, UBOOL Fullscreen )
@@ -415,6 +416,7 @@ UBOOL UNOpenGLESRenderDevice::Init( UViewport* InViewport, INT NewX, INT NewY, I
 	CurrentPolyFlags = PF_Occlude;
 	CurrentShaderFlags = 0;
 	CurrentBrightness = -1.f;
+	CurrentGamma = -1.f;
 	Viewport = InViewport;
 
 	// Set initial viewport size
@@ -698,6 +700,14 @@ void UNOpenGLESRenderDevice::Lock( FPlane FlashScale, FPlane FlashFog, FPlane Sc
 		UniformsChanged[UF_Brightness] = true;
 	}
 
+    FLOAT Gamma=1.6f;
+    GConfig->GetFloat(TEXT("Android"),TEXT("Gamma"),Gamma);
+    Gamma=Clamp(Gamma,0.75f,3.f);
+    if(CurrentGamma!=Gamma)
+    {
+        CurrentGamma=Gamma;
+        UniformsChanged[UF_Gamma]=true;
+    }
 	SetBlend( PF_Occlude );
 	SetShader( CurrentShaderFlags );
 
@@ -1049,6 +1059,11 @@ void UNOpenGLESRenderDevice::UpdateUniforms()
 		UniformsChanged[UF_Mtx] = false;
 	}
 
+    if( UniformsChanged[UF_Gamma] )
+    {
+        glUniform1f(ShaderInfo->Uniforms[UF_Gamma],CurrentGamma);
+        UniformsChanged[UF_Gamma]=false;
+    }
 	if( UniformsChanged[UF_Brightness] )
 	{
 		FlushTriangles();
@@ -1104,7 +1119,7 @@ UNOpenGLESRenderDevice::FCachedShader* UNOpenGLESRenderDevice::CreateShader( DWO
 	};
 
 	static const char* UniformNames[UF_Count] = {
-		"uMtx", "uBrightness", "uTexture0", "uTexture1", "uTexture2", "uTexture3"
+		"uMtx", "uBrightness", "uGamma", "uTexture0", "uTexture1", "uTexture2", "uTexture3"
 	};
 
 	static const char* AttribNames[AT_Count] = {

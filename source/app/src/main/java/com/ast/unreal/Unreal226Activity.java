@@ -35,6 +35,7 @@ public class Unreal226Activity extends SDLActivity {
     private static native void nativeGoldControllerButton(int key, boolean down);
     private static native void nativeGoldControllerAxis(int axis, float value);
     private static native void nativeGoldControllerReset();
+    private static native void nativeGoldDisplaySettings(float size, float gamma);
 
     private static native void nativeAndroidButtonV47(int keyCode, boolean down);
     private static native void nativeAndroidAxisV47(int axis, float value);
@@ -100,6 +101,7 @@ public class Unreal226Activity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (controllerInput != null) nativeGoldDisplaySettings(UnrealGold.interfaceSize(this), UnrealGold.gamma(this));
         if (touchBridge != null) touchBridge.start();
         scheduleImmersiveRefresh();
     }

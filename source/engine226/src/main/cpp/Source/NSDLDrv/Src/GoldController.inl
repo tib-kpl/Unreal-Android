@@ -134,8 +134,8 @@ static UBOOL UE1AndroidHandleSemanticToggleComboV21( UNSDLViewport* Viewport, IN
 			appMemset( GAndroidToggleFaceLatchedV21, 0, sizeof(GAndroidToggleFaceLatchedV21) );
 		}
 
-		// L3 is reserved as the toggle modifier and must not invoke a normal bind.
-		return 1;
+		// Keep the normal L3 binding (Duck by default) while tracking its chords.
+		return 0;
 	}
 
 	const INT Face = UE1AndroidToggleFaceFromUE1KeyV21( Key );
@@ -174,6 +174,7 @@ static void GoldPadKey( UNSDLViewport* V, INT Key, UBOOL Down )
     if( !UE1AndroidHandleSemanticToggleComboV21(V,Key,Down ? IST_Press : IST_Release) )
         V->CauseInputEvent( Key, Down ? IST_Press : IST_Release );
     UT99_ANDROID_SDL_LOGI("Gold controller key=%d %s", Key, Down ? "down" : "up");
+
 }
 
 static void GoldPadReset( UNSDLViewport* V )
@@ -395,6 +396,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeGo
 {
     SDL_Event Event; SDL_memset(&Event,0,sizeof(Event));
     Event.type=SDL_USEREVENT+0x228; SDL_PushEvent(&Event);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeGoldDisplaySettings(JNIEnv*,jclass,jfloat Scale,jfloat Gamma)
+{
+    SDL_Event Event; SDL_memset(&Event,0,sizeof(Event));
+    Event.type=SDL_USEREVENT+0x229;
+    Event.user.data1=(void*)(PTRINT)(INT)(Clamp((FLOAT)Scale,0.75f,1.25f)*1000.f);
+    Event.user.data2=(void*)(PTRINT)(INT)(Clamp((FLOAT)Gamma,0.75f,3.f)*1000.f);
+    SDL_PushEvent(&Event);
 }
 
 static INT GoldPadAndroidButton(INT Key)

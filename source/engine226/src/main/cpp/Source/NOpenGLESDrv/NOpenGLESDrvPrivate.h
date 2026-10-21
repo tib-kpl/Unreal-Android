@@ -14,6 +14,7 @@ enum EUniformIndex
 {
 	UF_Mtx,
 	UF_Brightness,
+	UF_Gamma,
 	UF_Texture0,
 	UF_Texture1,
 	UF_Texture2,
@@ -128,6 +129,7 @@ class DLL_EXPORT UNOpenGLESRenderDevice : public URenderDevice
 	DWORD CurrentShaderFlags;
 	DWORD CurrentPolyFlags;
 	FLOAT CurrentBrightness;
+	FLOAT CurrentGamma;
 	FLOAT RProjZ, Aspect;
 	FLOAT RFX2, RFY2;
 	glm::mat4 MtxProj;

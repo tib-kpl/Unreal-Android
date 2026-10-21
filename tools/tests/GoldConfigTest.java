@@ -42,10 +42,30 @@ public class GoldConfigTest {
         check(!lower.contains("[Engine.Input]"), "Duplicate input section");
         String empty = GoldControllerProfile.migrate("", stock, profile);
         check("Fire".equals(value(empty, "Joy13")), "New configuration lacks fire");
+        String personal = "[Engine.Input]\nJoy2=Jump\nJoy9=ActivateHint\nF3=ActivateHint | FunctionKey 3\n";
+        String imported = GoldControllerProfile.importPersonal(migrated, personal, profile, stock);
+        check("Jump".equals(value(imported, "Joy2")), "Personal v200 crouch/button layout was not copied");
+        check("ActivateHint".equals(value(imported, "Joy9")), "Personal objective button was not copied");
+        check(imported.equals(GoldControllerProfile.importPersonal(imported, personal, profile, stock)), "Personal migration repeats");
+        String fallbacks = "[Engine.Input]\nUnknownDA=\nUnknownDF=\nJoy13=\nW=MoveForward\nS=MoveBackward\nLeftMouse=AltFire\n";
+        String fallbackProfile = GoldControllerProfile.importPersonal(migrated, fallbacks, profile, stock);
+        check("MoveForward".equals(value(fallbackProfile, "UnknownDA")), "v200 fallback forward was lost");
+        check("MoveBackward".equals(value(fallbackProfile, "UnknownDF")), "v200 fallback backward was lost");
+        check("AltFire".equals(value(fallbackProfile, "Joy13")), "v200 trigger fallback was lost");
+        String goldCustom = Unreal226Config.upsert(migrated, "Engine.Input", "Joy9", "InventoryActivate");
+        goldCustom = GoldControllerProfile.importPersonal(goldCustom, personal, profile, stock);
+        check("InventoryActivate".equals(value(goldCustom, "Joy9")), "Gold custom binding was overwritten by v200");
         String paths = "[Core.System]\r\nPaths=..\\Maps\\*.unr\r\nSavePath=..\\Save\r\nName=Keep\\This\r\n";
         paths = Unreal226Config.fixPathSeparators(paths);
         check(paths.contains("Paths=../Maps/*.unr") && paths.contains("SavePath=../Save"), "Windows paths were not normalized");
         check(paths.contains("Name=Keep\\This"), "Unrelated value was changed");
+        String display = Unreal226Config.displaySettings("[Android]\nUIScale=2.000000\nClassicMenu=True\n", 1f, 1.6f);
+        check("0".equals(value(display, "UIScale")), "Old fixed scale was not migrated to automatic");
+        check("1.6".equals(value(display, "Gamma")), "Gamma default missing");
+        check(display.equals(Unreal226Config.displaySettings(display, 1f, 1.6f)), "Display migration repeats");
+        String customScale = Unreal226Config.displaySettings("[android]\nUIScale=3.5\n", 1.25f, 2.2f);
+        check("3.5".equals(value(customScale, "UIScale")), "Custom scale was overwritten");
+        check("1.25".equals(value(customScale, "UIScaleMultiplier")), "Size selection lost");
         String pcAudio="[Galaxy.GalaxyAudioSubsystem]\nMusicVolume=160\nSoundVolume=200\nOutputRate=22050Hz\nEffectsChannels=16\nUseStereo=True\nUseDigitalMusic=True\n";
         String audio=GoldAudioProfile.migrate(pcAudio);
         check("16".equals(value(audio,"Channels")), "No effect voices");
@@ -57,6 +77,6 @@ public class GoldConfigTest {
         String muted=pcAudio+"[Audio.GenericAudioSubsystem]\nChannels=16\nMusicVolume=0\nSoundVolume=0\n";
         check(GoldAudioProfile.migrate(muted).contains("MusicVolume=0"), "Intentional mute overwritten");
         check(GoldAudioProfile.migrate(muted).contains("SoundVolume=0"), "Intentional effects mute overwritten");
-        System.out.println("PASS: " + verified + " v200 bindings, custom bindings, sensitivity, repeat launches, path and audio migration");
+        System.out.println("PASS: " + verified + " defaults, personal v200 bindings, Gold customization preservation, display/gamma, paths and audio migration");
     }
 }

@@ -113,6 +113,16 @@ public final class GoldSettingsActivity extends Activity {
                         .setPositiveButton(text("Réinitialiser", "Reset"), (dialog, which) -> { setResult(RESET_TOUCH); finish(); })
                         .show()));
 
+        if (!v200) {
+            body.addView(label(text("Affichage", "Display"), 17));
+            displaySlider(body, text("Taille des menus classiques et du HUD : ", "Classic menu and HUD size: "),
+                    UnrealGold.interfaceSize(this), .75f, .05f, 10, false);
+            displaySlider(body, text("Gamma (zones sombres) : ", "Gamma (shadow detail): "),
+                    UnrealGold.gamma(this), .75f, .05f, 45, true);
+            body.addView(label(text("La taille s’adapte à la résolution. Les deux réglages s’appliquent au retour au jeu.",
+                    "Size adapts to the resolution. Both settings apply when you return to the game."), 14));
+        }
+
         body.addView(label(text("Langue du jeu", "Game language"), 17));
         final String[] codes = v200 ? V200_CODES : CODES;
         String[] names = v200 ? new String[]{text("Automatique (langue d’Android)", "Automatic (Android language)"), "Français", "English"} : NAMES;
@@ -125,8 +135,8 @@ public final class GoldSettingsActivity extends Activity {
         body.addView(label(v200
                 ? text("La traduction française est téléchargée depuis OldUnreal au redémarrage si nécessaire.",
                     "The French translation is downloaded from OldUnreal on restart when needed.")
-                : text("Les voix et textes doivent être présents dans les fichiers du jeu ; sinon l’anglais est utilisé.",
-                    "Voices and texts must be present in the game data; otherwise English is used."), 14));
+                : text("Les textes français manquants sont téléchargés au redémarrage. Les voix doivent être présentes dans les fichiers du jeu.",
+                    "Missing French texts download on restart. Voice files must be present in the game data."), 14));
 
         if (v200) {
             body.addView(button(text("Appliquer la langue et relancer le jeu…", "Apply language and restart…"), () ->
@@ -170,6 +180,29 @@ public final class GoldSettingsActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(outer);
         topBack.requestFocus();
+    }
+
+    private void displaySlider(LinearLayout body, String caption, float value, float min, float step, int max, boolean gamma) {
+        TextView current = label("", 15);
+        body.addView(current);
+        SeekBar slider = new SeekBar(this);
+        slider.setMax(max);
+        slider.setProgress(Math.round((value - min) / step));
+        SeekBar.OnSeekBarChangeListener listener = new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                float chosen = min + progress * step;
+                current.setText(caption + String.format(java.util.Locale.getDefault(), gamma ? "%.2f" : "%.0f %%", gamma ? chosen : chosen * 100));
+                if (fromUser) {
+                    if (gamma) UnrealGold.gamma(GoldSettingsActivity.this, chosen);
+                    else UnrealGold.interfaceSize(GoldSettingsActivity.this, chosen);
+                }
+            }
+            public void onStartTrackingTouch(SeekBar bar) { }
+            public void onStopTrackingTouch(SeekBar bar) { }
+        };
+        slider.setOnSeekBarChangeListener(listener);
+        listener.onProgressChanged(slider, slider.getProgress(), false);
+        body.addView(slider, new LinearLayout.LayoutParams(-1, dp(48)));
     }
 
     private void confirm(String message, int result) {

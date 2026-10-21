@@ -1233,6 +1233,7 @@ CORE_API const TCHAR* Localize( const TCHAR* Section, const TCHAR* Key, const TC
 {
 	guard(Localize);
 	TCHAR* Result = appStaticString1024();
+	Result[0]=0;
 	if( !GIsStarted || !GConfig )
 	{
 		appStrcpy( Result, Key );
