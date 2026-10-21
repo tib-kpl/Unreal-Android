@@ -8,6 +8,9 @@
 
 #include "EnginePrivate.h"
 #include "UnRender.h"
+#ifdef UNREAL_ANDROID_API16_NATIVE_OPT_NAME
+#include <android/log.h>
+#endif
 
 /*-----------------------------------------------------------------------------
 	Object class implementation.
@@ -66,7 +69,20 @@ void UEngine::Init()
 
 	// Subsystems.
 	FURL::Init();
+#if defined(PLATFORM_ANDROID)
+	// UNREAL_ANDROID_ENGINE_CACHE_FLOOR_V222: the 1998 default (2-4 MB) is far too
+	// small for big levels; lightmaps, shadow maps and mesh frames then get evicted
+	// and rebuilt on the CPU over and over. 16 MB is cheap on any supported device.
+	GCache.Init( 1024 * 1024 * Clamp(CacheSizeMegs,16,1024), 8192 );
+#else
 	GCache.Init( 1024 * 1024 * Clamp(CacheSizeMegs,1,1024), 4096 );
+#endif
+#ifdef UNREAL_ANDROID_API16_NATIVE_OPT_NAME
+	// UNREAL_ANDROID_API16_NATIVE_OPT_V223: show which script VM build is running
+	// (debugf only reaches Unreal.log, so also write it to logcat).
+	debugf( NAME_Init, "OUYA/API16 native optimisation: %s", UNREAL_ANDROID_API16_NATIVE_OPT_NAME );
+	__android_log_print( ANDROID_LOG_INFO, "UE1Android", "OUYA/API16 native optimisation: %s", UNREAL_ANDROID_API16_NATIVE_OPT_NAME );
+#endif
 
 	// Objects.
 	Cylinder = new UPrimitive;
