@@ -2,6 +2,9 @@
 
 # Unreal Android
 
+This fork includes [Unreal Gold 226 support](docs/UNREAL_GOLD.md) alongside
+the original Unreal v200 engine. The launcher selects the engine from the game data.
+
 > [!NOTE]
 > **Fork pour la traduction française** de [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android).
 > - Menus, HUD, messages et textes des cartes en français sur Unreal v1.200, avec un choix de la langue au premier lancement (puis appui long sur l'icône > « Langue du jeu »).
@@ -36,7 +39,7 @@
 
 > [!NOTE]
 > Unofficial fan port.  
-> No game data included. Requires legally obtained Unreal v1.200 game files.  
+> No game data included. Requires legally obtained Unreal v1.200 or Unreal Gold 226 game files.  
 > This project is not official and is not endorsed by Epic Games.
 
 

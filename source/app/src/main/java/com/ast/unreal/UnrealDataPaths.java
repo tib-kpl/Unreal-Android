@@ -294,6 +294,10 @@ final class UnrealDataPaths {
         return ok;
     }
 
+    static File findSystemFile(File dir, String expectedName) {
+        return findCaseInsensitive(dir, expectedName);
+    }
+
     private static File findCaseInsensitive(File dir, String expectedName) {
         if (dir == null || expectedName == null) return null;
         File exact = new File(dir, expectedName);
@@ -320,7 +324,8 @@ final class UnrealDataPaths {
     }
 
     static void installDefaultConfigsIfNeeded(Context context, File root) {
-        if (root == null) return;
+        // Unreal Gold data keeps its own Unreal.ini; Unreal226Config derives the Android one.
+        if (root == null || UnrealGold.isGoldData(root)) return;
         File systemDir = new File(root, "System");
         if (!systemDir.exists() && !systemDir.mkdirs()) Log.w(TAG_CONFIG, "Could not create System directory: " + systemDir.getAbsolutePath());
         copyAssetIfMissing(context, "ue1_config/Unreal.ini", new File(systemDir, "Unreal.ini"));
@@ -344,7 +349,8 @@ final class UnrealDataPaths {
     }
 
     static void normalizeConfigForDetectedData(File root) {
-        if (root == null) return;
+        // Unreal Gold data keeps its own Unreal.ini; Unreal226Config derives the Android one.
+        if (root == null || UnrealGold.isGoldData(root)) return;
         File systemDir = new File(root, "System");
         boolean hasUnrealI = findCaseInsensitive(systemDir, "UnrealI.u") != null;
         boolean hasUnrealShare = findCaseInsensitive(systemDir, "UnrealShare.u") != null;
@@ -372,7 +378,8 @@ final class UnrealDataPaths {
     }
 
     static void ensureWritableConfigFiles(Context context, File root) {
-        if (root == null) return;
+        // Unreal Gold data keeps its own Unreal.ini; Unreal226Config derives the Android one.
+        if (root == null || UnrealGold.isGoldData(root)) return;
         try {
             ensureDirectoryLayout(root);
             installDefaultConfigsIfNeeded(context, root);

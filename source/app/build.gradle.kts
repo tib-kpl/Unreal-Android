@@ -965,6 +965,8 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            // Both engines build the same SDL2 sources; keep one copy.
+            pickFirsts += setOf("**/libSDL2.so")
         }
         resources {
             excludes += setOf("/META-INF/{AL2.0,LGPL2.1}")
@@ -973,6 +975,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":engine226")) // Unreal Gold 226 engine (libUnreal226.so)
     implementation(files("libs/retrotouch.aar")) // UNREAL_ANDROID_RETROTOUCH_V215 UNREAL_ANDROID_RETROTOUCH_BETA3_V221
 }
 

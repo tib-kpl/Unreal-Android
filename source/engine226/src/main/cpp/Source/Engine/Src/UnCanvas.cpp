@@ -1,0 +1,1244 @@
+/*=============================================================================
+	UnCanvas.cpp: Unreal canvas rendering.
+	Copyright 1997-1999 Epic Games, Inc. All Rights Reserved.
+
+Revision history:
+	* Created by Tim Sweeney
+	* 31/3/99 Updated revision history - Jack Porter
+=============================================================================*/
+
+#include "EnginePrivate.h"
+#if defined(PLATFORM_ANDROID)
+extern "C" int UT99AndroidDesktopDPI();
+extern "C" int* UT99AndroidFontPage(int,int,int,const unsigned short*,int,int*);
+extern "C" void UT99AndroidFreeFontPage(int*);
+
+void UCanvas::execGetDesktopDPI(FFrame& Stack, RESULT_DECL)
+{
+    P_FINISH;
+    *(INT*)Result=UT99AndroidDesktopDPI();
+}
+
+void UCanvas::execCreateFont(FFrame& Stack, RESULT_DECL)
+{
+    P_GET_BYTE(Family);
+    P_GET_INT(Size);
+    P_GET_UBOOL(Bold);
+    P_GET_UBOOL(Italic);
+    P_GET_UBOOL(Underlined);
+    P_GET_UBOOL(DPIScaled);
+    P_GET_UBOOL(AntiAliased);
+    P_FINISH;
+    *(UFont**)Result=NULL;
+    if(Family>3 || Size<1 || Size>128) return;
+    INT Pixels=DPIScaled ? Clamp(appRound(Size*UT99AndroidDesktopDPI()/96.f),1,128) : Size;
+    INT Flags=(Bold?1:0)|(Italic?2:0)|(Underlined?4:0)|(AntiAliased?8:0);
+    FString Range=GetDefault<UCanvas>()->DynamicFontUnicodeRange;
+    FString Name=FString::Printf(TEXT("AndroidFont_%i_%i_%i_%08x"),Family,Pixels,Flags,appStrCrc(*Range));
+    UFont* Existing=FindObject<UFont>(GetTransientPackage(),*Name);
+    if(Existing) { *(UFont**)Result=Existing; return; }
+    TArray<_WORD> Glyphs;
+    // Preserve ASCII indices, including the fallback space at index 32.
+    for(INT i=0;i<256;++i) Glyphs.AddItem((_WORD)i);
+    const TCHAR* Cursor=*Range;
+    while(*Cursor)
+    {
+        TCHAR* End=NULL;
+        INT First=appStrtoi(Cursor,&End,16);
+        if(End==Cursor) { ++Cursor; continue; }
+        Cursor=End;
+        INT Last=First;
+        if(*Cursor=='-') { ++Cursor; Last=appStrtoi(Cursor,&End,16); Cursor=End; }
+        if(First>=0 && Last>=First && Last<=65535)
+            for(INT Ch=First;Ch<=Last && Glyphs.Num()<8192;++Ch)
+                if((Ch<0xd800 || Ch>0xdfff) && Glyphs.FindItemIndex((_WORD)Ch)==INDEX_NONE)
+                    Glyphs.AddItem((_WORD)Ch);
+        while(*Cursor && *Cursor!=',') ++Cursor;
+        if(*Cursor) ++Cursor;
+    }
+    UFont* Font=new(GetTransientPackage())UFont;
+    Font->CharactersPerPage=256;
+    Font->HasGlyphMap=1;
+    for(INT Start=0;Start<Glyphs.Num();Start+=256)
+    {
+        INT Count=Min(256,Glyphs.Num()-Start), Length=0;
+        INT* Data=UT99AndroidFontPage(Family,Pixels,Flags,&Glyphs(Start),Count,&Length);
+        if(!Data) return;
+        INT Width=Data[0], Height=Data[1], Offset=2+Count*4;
+        if(Length<Offset || Width<1 || Width>4096 || Height<1 || Height>4096
+        || (Width&(Width-1)) || (Height&(Height-1)) || Width*Height!=Length-Offset)
+        { UT99AndroidFreeFontPage(Data); return; }
+        FFontPage* Page=new(Font->Pages)FFontPage;
+        Page->Characters.AddZeroed(Count);
+        Page->Texture=new(Font)UTexture;
+        UTexture* Texture=Page->Texture;
+        Texture->Init(Width,Height);
+        Texture->PolyFlags=PF_Masked;
+        Texture->PostLoad();
+        Texture->Palette->Colors.Empty();
+        Texture->Palette->Colors.AddZeroed(256);
+        for(INT i=0;i<256;++i) Texture->Palette->Colors(i)=FColor(i,i,i,i);
+        for(INT i=0;i<Width*Height;++i) Texture->Mips(0).DataArray(i)=(DWORD)Data[Offset+i]>>24;
+        Texture->CreateColorRange();
+        for(INT i=0;i<Count;++i)
+        {
+            FFontCharacter& Character=Page->Characters(i);
+            Character.StartU=Data[2+i*4]; Character.StartV=Data[3+i*4];
+            Character.USize=Data[4+i*4]; Character.VSize=Data[5+i*4];
+            Font->GlyphMap.Set(Glyphs(Start+i),(_WORD)(Start+i));
+        }
+        UT99AndroidFreeFontPage(Data);
+    }
+    Font->Rename(*Name);
+    *(UFont**)Result=Font;
+}
+
+#include "UnNativeLayoutMacros.h"
+void UCanvas::StaticConstructor()
+{
+    typedef UCanvas FLayoutClass;
+    BYTE Before[sizeof(FLayoutClass)];
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("BigFont"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,BigFont),sizeof(BigFont),0,UT99NativeFieldCapacity(BigFont));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("ClipX"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,ClipX),sizeof(ClipX),0,UT99NativeFieldCapacity(ClipX));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("ClipY"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,ClipY),sizeof(ClipY),0,UT99NativeFieldCapacity(ClipY));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("CurX"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,CurX),sizeof(CurX),0,UT99NativeFieldCapacity(CurX));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("CurY"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,CurY),sizeof(CurY),0,UT99NativeFieldCapacity(CurY));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("CurYL"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,CurYL),sizeof(CurYL),0,UT99NativeFieldCapacity(CurYL));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("DrawColor"),TEXT("StructProperty"),STRUCT_OFFSET(FLayoutClass,Color),sizeof(Color),0,UT99NativeFieldCapacity(Color));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("DynamicFontUnicodeRange"),TEXT("StrProperty"),STRUCT_OFFSET(FLayoutClass,DynamicFontUnicodeRange),sizeof(DynamicFontUnicodeRange),0,UT99NativeFieldCapacity(DynamicFontUnicodeRange));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("Font"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,Font),sizeof(Font),0,UT99NativeFieldCapacity(Font));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("FramePtr"),TEXT("IntProperty"),STRUCT_OFFSET(FLayoutClass,Frame),sizeof(Frame),0,UT99NativeFieldCapacity(Frame));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("FramePtr"),TEXT("PointerProperty"),STRUCT_OFFSET(FLayoutClass,Frame),sizeof(Frame),0,UT99NativeFieldCapacity(Frame));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("LargeFont"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,LargeFont),sizeof(LargeFont),0,UT99NativeFieldCapacity(LargeFont));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("MedFont"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,MedFont),sizeof(MedFont),0,UT99NativeFieldCapacity(MedFont));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("OrgX"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,OrgX),sizeof(OrgX),0,UT99NativeFieldCapacity(OrgX));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("OrgY"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,OrgY),sizeof(OrgY),0,UT99NativeFieldCapacity(OrgY));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("RenderPtr"),TEXT("IntProperty"),STRUCT_OFFSET(FLayoutClass,Render),sizeof(Render),0,UT99NativeFieldCapacity(Render));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("RenderPtr"),TEXT("PointerProperty"),STRUCT_OFFSET(FLayoutClass,Render),sizeof(Render),0,UT99NativeFieldCapacity(Render));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("SizeX"),TEXT("IntProperty"),STRUCT_OFFSET(FLayoutClass,X),sizeof(X),0,UT99NativeFieldCapacity(X));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("SizeY"),TEXT("IntProperty"),STRUCT_OFFSET(FLayoutClass,Y),sizeof(Y),0,UT99NativeFieldCapacity(Y));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("SmallFont"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,SmallFont),sizeof(SmallFont),0,UT99NativeFieldCapacity(SmallFont));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("SpaceX"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,SpaceX),sizeof(SpaceX),0,UT99NativeFieldCapacity(SpaceX));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("SpaceY"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,SpaceY),sizeof(SpaceY),0,UT99NativeFieldCapacity(SpaceY));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("Style"),TEXT("ByteProperty"),STRUCT_OFFSET(FLayoutClass,Style),sizeof(Style),0,UT99NativeFieldCapacity(Style));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("UglyFontScaling"),TEXT("IntProperty"),STRUCT_OFFSET(FLayoutClass,UglyFontScaling),sizeof(UglyFontScaling),0,UT99NativeFieldCapacity(UglyFontScaling));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("Viewport"),TEXT("ObjectProperty"),STRUCT_OFFSET(FLayoutClass,Viewport),sizeof(Viewport),0,UT99NativeFieldCapacity(Viewport));
+    UT99RegisterNativeFieldLayout(GetClass(),TEXT("Z"),TEXT("FloatProperty"),STRUCT_OFFSET(FLayoutClass,Z),sizeof(Z),0,UT99NativeFieldCapacity(Z));
+    UT99_LAYOUT_BOOL(bCenter)
+    UT99_LAYOUT_BOOL(bNoSmooth)
+    UT99_LAYOUT_BOOL(bSnapToPixels)
+}
+#undef UT99_LAYOUT_BOOL
+#undef UT99_LAYOUT_FIELD
+#endif
+
+
+#include "UnRender.h"
+
+/*-----------------------------------------------------------------------------
+	UCanvas scaled sprites.
+-----------------------------------------------------------------------------*/
+
+#if UNREAL_GOLD_226
+/*-----------------------------------------------------------------------------
+	Unreal Gold: 2D scale of the classic menus and HUD.
+
+	As in the v200 engine of Unreal-Android, the canvas is a logical screen
+	(Frame size / scale) and every 2D draw is scaled back to pixels. UWindow
+	consoles keep the pixel canvas: they scale themselves with GUIScale and map
+	the mouse and touches in pixels.
+-----------------------------------------------------------------------------*/
+
+static FLOAT GUnrealCanvasScale = 1.f;
+
+ENGINE_API FLOAT UnrealAndroidCanvasScale()
+{
+	return GUnrealCanvasScale;
+}
+
+static FLOAT UnrealAndroidConfiguredCanvasScale( UViewport* Viewport )
+{
+	if( !Viewport || !Viewport->Console )
+		return 1.f;
+	// The classic adapter inherits UPakConsole for mission transitions, but
+	// renders the original HUD menus. Only the Windows mode uses pixel sizing.
+	UBOOL bClassicMenu = 0;
+	GConfig->GetBool( TEXT("Android"), TEXT("ClassicMenu"), bClassicMenu );
+	if( !bClassicMenu )
+		return 1.f;
+	static FLOAT Configured = -1.f;
+	if( Configured < 0.f )
+	{
+		Configured = 1.f;
+		GConfig->GetFloat( TEXT("Android"), TEXT("UIScale"), Configured );
+		Configured = Clamp( Configured, 1.f, 4.f );
+	}
+	return Configured;
+}
+#endif
+
+//
+// Draw arbitrary aligned rectangle.
+//
+void UCanvas::DrawTile
+(
+	UTexture*		Texture,
+	FLOAT			X,
+	FLOAT			Y,
+	FLOAT			XL,
+	FLOAT			YL,
+	FLOAT			U,
+	FLOAT			V,
+	FLOAT			UL,
+	FLOAT			VL,
+	FSpanBuffer*	SpanBuffer,
+	FLOAT			Z,
+	FPlane			Color,
+	FPlane			Fog,
+	DWORD			PolyFlags
+)
+{
+	guard(UCanvas::DrawTile);
+#if UNREAL_GOLD_226
+	if( GUnrealCanvasScale != 1.f )
+	{
+		X *= GUnrealCanvasScale; Y *= GUnrealCanvasScale;
+		XL *= GUnrealCanvasScale; YL *= GUnrealCanvasScale;
+	}
+#endif
+#if defined(PLATFORM_ANDROID)
+    if(bSnapToPixels)
+    {
+        FLOAT Right=appRound(X+XL),Bottom=appRound(Y+YL);
+        X=appRound(X); Y=appRound(Y);
+        XL=Right-X; YL=Bottom-Y;
+    }
+#endif
+	check(Texture);
+
+	// Compute clipping region.
+	FLOAT ClipY0 = /*SpanBuffer ? SpanBuffer->StartY :*/ 0;
+	FLOAT ClipY1 = /*SpanBuffer ? SpanBuffer->EndY   :*/ Frame->FY;
+
+	// Reject.
+	if( XL<=0.f || YL<=0.f || X+XL<=0.f || Y+YL<=ClipY0 || X>=Frame->FX || Y>=ClipY1 )
+		return;
+
+	// Clip.
+	if( X<0.f )
+		{FLOAT C=X*UL/XL; U-=C; UL+=C; XL+=X; X=0.f;}
+	if( Y<0.f )
+		{FLOAT C=Y*VL/YL; V-=C; VL+=C; YL+=Y; Y=0.f;}
+	if( XL>Frame->FX-X )
+		{UL+=(Frame->FX-X-XL)*UL/XL; XL=Frame->FX-X;}
+	if( YL>Frame->FY-Y )
+		{VL+=(Frame->FY-Y-YL)*VL/YL; YL=Frame->FY-Y;}
+
+	// Draw it.
+	FTextureInfo Info;
+	if( !GIsEditor )
+		Texture = Texture->Get( Viewport->CurrentTime );
+	Texture->Lock( Info, Viewport->CurrentTime, -1, Viewport->RenDev );
+	FLOAT UF = Info.UScale * Info.USize / Texture->USize; U *= UF; UL *= UF;
+	FLOAT VF = Info.VScale * Info.VSize / Texture->VSize; V *= VF; VL *= VF;
+	Viewport->RenDev->DrawTile( Frame, Info, X, Y, XL, YL, U, V, UL, VL, SpanBuffer, Z, Color, Fog, PolyFlags | (Texture->PolyFlags&PF_Masked) );
+	Texture->Unlock( Info );
+
+	unguard;
+}
+
+//
+// Draw titling pattern.
+//
+void UCanvas::DrawPattern
+(
+	UTexture*		Texture,
+	FLOAT			X,
+	FLOAT			Y,
+	FLOAT			XL,
+	FLOAT			YL,
+	FLOAT			Scale,
+	FLOAT			OrgX,
+	FLOAT			OrgY,
+	FSpanBuffer*	SpanBuffer,
+	FLOAT			Z,
+	FPlane			Color,
+	FPlane			Fog,
+	DWORD			PolyFlags
+)
+{
+	guard(UCanvas::DrawPattern);
+	DrawTile( Texture, X, Y, XL, YL, (X-OrgX)*Scale + Texture->USize, (Y-OrgY)*Scale + Texture->VSize, XL*Scale, YL*Scale, SpanBuffer, Z, Color, Fog, PolyFlags );
+	unguard;
+}
+
+//
+// Draw a scaled sprite.  Takes care of clipping.
+// XSize and YSize are in pixels.
+//
+void UCanvas::DrawIcon
+(
+	UTexture*			Texture,
+	FLOAT				ScreenX, 
+	FLOAT				ScreenY, 
+	FLOAT				XSize, 
+	FLOAT				YSize, 
+	FSpanBuffer*		SpanBuffer,
+	FLOAT				Z,
+	FPlane				Color,
+	FPlane				Fog,
+	DWORD				PolyFlags
+)
+{
+	guard(UCanvas::DrawIcon);
+	DrawTile( Texture, ScreenX, ScreenY, XSize, YSize, 0, 0, Texture->USize, Texture->VSize, SpanBuffer, Z, Color, Fog, PolyFlags );
+	unguard;
+}
+
+/*-----------------------------------------------------------------------------
+	Clip window.
+-----------------------------------------------------------------------------*/
+
+void UCanvas::SetClip( INT X, INT Y, INT XL, INT YL )
+{
+	guard(UCanvas::SetClip);
+
+	CurX  = 0;
+	CurY  = 0;
+	OrgX  = X;
+	OrgY  = Y;
+	ClipX = XL;
+	ClipY = YL;
+
+	unguard;
+}
+
+/*-----------------------------------------------------------------------------
+	UCanvas basic text functions.
+-----------------------------------------------------------------------------*/
+
+//
+// Draw a character.
+//
+static inline void DrawChar
+(
+	DWORD			Flags,
+	UCanvas*		Canvas,
+	FTextureInfo&	Info,
+	INT				X,
+	INT				Y,
+	INT				XL,
+	INT				YL,
+	INT				U, 
+	INT				V, 
+	INT				UL, 
+	INT				VL, 
+	FPlane			Color
+)
+{
+	guardSlow(DrawChar);
+#if UNREAL_GOLD_226
+	if( GUnrealCanvasScale != 1.f )
+	{
+		X = appRound(X * GUnrealCanvasScale); Y = appRound(Y * GUnrealCanvasScale);
+		XL = appRound(XL * GUnrealCanvasScale); YL = appRound(YL * GUnrealCanvasScale);
+	}
+#endif
+
+	// Reject.
+	FSceneNode* Frame=Canvas->Frame;
+	if( !(Flags & PF_Invisible) && X+XL>0 && Y+YL>0 && X<Frame->X && Y<Frame->Y && XL>0 && YL>0 )
+	{
+		// Clip.
+		if( X<0 )
+			{INT C=X*UL/XL; U-=C; UL+=C; XL+=X; X=0;}
+		if( Y<0 )
+			{INT C=Y*VL/YL; V-=C; VL+=C; YL+=Y; Y=0;}
+		if( XL>Frame->X-X )
+			{UL+=(Frame->X-X-XL)*UL/XL; XL=Frame->X-X;}
+		if( YL>Frame->Y-Y )
+			{VL+=(Frame->Y-Y-YL)*VL/YL; YL=Frame->Y-Y;}
+
+		// Draw.
+		// XL/YL is the screen size; it equals UL/VL unless the canvas is scaled.
+		Frame->Viewport->RenDev->DrawTile( Frame, Info, X, Y, XL, YL, U, V, UL, VL, NULL, Canvas->Z, Color, FPlane(0,0,0,0), Flags );
+	}
+	unguardSlow;
+}
+
+#if (defined(__ANDROID__) || defined(PLATFORM_ANDROID)) && !UNICODE
+// UT99_ANDROID_V201_CYRILLIC_FONT_ATLAS:
+// The original v400 font packages contain Western 8-bit glyph pages.  Keep
+// those packages untouched and provide only the CP1251 high-byte glyphs from
+// a small raster atlas installed beside the System files.  This avoids package
+// GUID/version changes and works identically on ARMv7 and ARM64.
+struct FUT99AndroidCyrillicGlyph
+{
+	_WORD U, V, W, H, Advance;
+};
+
+static UTexture* GUT99AndroidCyrillicTexture = NULL;
+static FUT99AndroidCyrillicGlyph GUT99AndroidCyrillicGlyphs[2][128];
+static INT GUT99AndroidCyrillicCellHeight = 0;
+static UBOOL GUT99AndroidCyrillicLoadAttempted = 0;
+
+static UBOOL UT99AndroidIsRussianLanguage()
+{
+	const TCHAR* Language = UObject::GetLanguage();
+	if( !Language ) return 0;
+	return appStricmp(Language,TEXT("rut"))==0
+		|| appStricmp(Language,TEXT("ru"))==0
+		|| appStricmp(Language,TEXT("rus"))==0;
+}
+
+static _WORD UT99AndroidReadLE16( const BYTE* Ptr )
+{
+	return (_WORD)(Ptr[0] | ((_WORD)Ptr[1]<<8));
+}
+
+static UBOOL UT99AndroidLoadCyrillicAtlas()
+{
+	if( GUT99AndroidCyrillicTexture )
+		return 1;
+	if( GUT99AndroidCyrillicLoadAttempted )
+		return 0;
+	GUT99AndroidCyrillicLoadAttempted = 1;
+
+	TArray<BYTE> Data;
+	if( !appLoadFileToArray(Data,TEXT("CyrillicFontAtlas.dat"),GFileManager) || Data.Num()<16 )
+	{
+		debugf( NAME_Localization, TEXT("Android Cyrillic: CyrillicFontAtlas.dat not found; stock font fallback remains active") );
+		return 0;
+	}
+
+	static const BYTE Magic[8] = {'U','T','R','U','C','P','1',0};
+	if( appMemcmp(&Data(0),Magic,8)!=0 )
+	{
+		debugf( NAME_Warning, TEXT("Android Cyrillic: invalid font atlas signature") );
+		return 0;
+	}
+
+	const BYTE* Header=&Data(8);
+	INT Width      = UT99AndroidReadLE16(Header+0);
+	INT Height     = UT99AndroidReadLE16(Header+2);
+	INT CellHeight = UT99AndroidReadLE16(Header+4);
+	INT GlyphCount = UT99AndroidReadLE16(Header+6);
+	const INT RecordSize=10;
+	const INT RecordsOffset=16;
+	const INT PixelsOffset=RecordsOffset + GlyphCount*RecordSize;
+	if( Width<=0 || Height<=0 || (Width&(Width-1)) || (Height&(Height-1))
+	 || CellHeight<=0 || GlyphCount!=256 || PixelsOffset<0
+	 || PixelsOffset + Width*Height != Data.Num() )
+	{
+		debugf( NAME_Warning, TEXT("Android Cyrillic: invalid font atlas geometry %ix%i glyphs=%i bytes=%i"), Width, Height, GlyphCount, Data.Num() );
+		return 0;
+	}
+
+	for( INT i=0; i<GlyphCount; i++ )
+	{
+		const BYTE* R=&Data(RecordsOffset+i*RecordSize);
+		FUT99AndroidCyrillicGlyph& G=GUT99AndroidCyrillicGlyphs[i/128][i%128];
+		G.U       = UT99AndroidReadLE16(R+0);
+		G.V       = UT99AndroidReadLE16(R+2);
+		G.W       = UT99AndroidReadLE16(R+4);
+		G.H       = UT99AndroidReadLE16(R+6);
+		G.Advance = UT99AndroidReadLE16(R+8);
+		if( G.W==0 || G.H==0 || G.U+G.W>Width || G.V+G.H>Height )
+		{
+			debugf( NAME_Warning, TEXT("Android Cyrillic: invalid glyph record %i"), i );
+			return 0;
+		}
+	}
+
+	UTexture* Texture = new(UObject::GetTransientPackage(),TEXT("UT99AndroidCyrillicAtlas"))UTexture;
+	Texture->Init( Width, Height );
+	Texture->PolyFlags = PF_Masked;
+	Texture->PostLoad();
+	if( !Texture->Palette )
+		return 0;
+	Texture->Palette->Colors.Empty();
+	Texture->Palette->Colors.AddZeroed(256);
+	for( INT i=0; i<256; i++ )
+		Texture->Palette->Colors(i)=FColor(i,i,i,i);
+	appMemcpy( &Texture->Mips(0).DataArray(0), &Data(PixelsOffset), Width*Height );
+	Texture->CreateColorRange();
+	Texture->AddToRoot();
+
+	GUT99AndroidCyrillicTexture=Texture;
+	GUT99AndroidCyrillicCellHeight=CellHeight;
+	debugf( NAME_Localization, TEXT("Android Cyrillic: loaded CP1251 fallback atlas %ix%i"), Width, Height );
+	return 1;
+}
+
+static void UT99AndroidGetStockCharSize( UFont* Font, TCHAR InCh, INT& Width, INT& Height )
+{
+	Width=Height=0;
+	if( !Font ) return;
+	INT Ch=Font->GlyphIndex((TCHARU)InCh);
+	INT Page=Ch/Font->CharactersPerPage;
+	INT Index=Ch-Page*Font->CharactersPerPage;
+	if( Page<Font->Pages.Num() && Index<Font->Pages(Page).Characters.Num() )
+	{
+		FFontCharacter& Char=Font->Pages(Page).Characters(Index);
+		Width=Char.USize;
+		Height=Char.VSize;
+	}
+}
+
+static INT UT99AndroidCyrillicFaceForFont( UFont* Font )
+{
+	if( !Font ) return 0;
+	const TCHAR* Name=Font->GetName();
+	return (appStrnicmp(Name,TEXT("TahomaB"),7)==0 || appStricmp(Name,TEXT("UTFont40"))==0) ? 1 : 0;
+}
+
+static UBOOL UT99AndroidGetCyrillicGlyph( UFont* Font, INT Ch, FUT99AndroidCyrillicGlyph*& Glyph, INT& DrawW, INT& DrawH )
+{
+	Glyph=NULL;
+	DrawW=DrawH=0;
+	if( Ch<0x80 || Ch>0xff || !UT99AndroidIsRussianLanguage() || !UT99AndroidLoadCyrillicAtlas() )
+		return 0;
+
+	Glyph=&GUT99AndroidCyrillicGlyphs[UT99AndroidCyrillicFaceForFont(Font)][Ch-0x80];
+	static UBOOL LoggedFirstGlyph=0;
+	if( !LoggedFirstGlyph )
+	{
+		debugf( NAME_Localization, TEXT("Android Cyrillic: first fallback glyph byte=0x%02x language=%s font=%s"),
+			Ch, UObject::GetLanguage(), Font ? Font->GetName() : TEXT("<null>") );
+		LoggedFirstGlyph=1;
+	}
+	INT RefW=0, RefH=0;
+	UT99AndroidGetStockCharSize(Font,TEXT('M'),RefW,RefH);
+	if( RefH<=0 ) UT99AndroidGetStockCharSize(Font,TEXT('A'),RefW,RefH);
+	if( RefH<=0 ) RefH=GUT99AndroidCyrillicCellHeight;
+	FLOAT Scale=(FLOAT)RefH/(FLOAT)GUT99AndroidCyrillicCellHeight;
+	DrawW=Max<INT>(1,(INT)(Glyph->Advance*Scale+0.5f));
+	DrawH=Max<INT>(1,RefH);
+	return 1;
+}
+
+static void UT99AndroidDrawCyrillicGlyph
+(
+	DWORD Flags, UCanvas* Canvas, FTextureInfo& Info,
+	INT X, INT Y, INT XL, INT YL,
+	const FUT99AndroidCyrillicGlyph& Glyph, FPlane Color, UBOOL bClip
+)
+{
+	FLOAT U=(FLOAT)Glyph.U, V=(FLOAT)Glyph.V;
+	FLOAT UL=(FLOAT)Glyph.W, VL=(FLOAT)Glyph.H;
+	FLOAT OX=(FLOAT)X, OY=(FLOAT)Y, OXL=(FLOAT)XL, OYL=(FLOAT)YL;
+	if( bClip )
+	{
+		if( OX<0.f ) { FLOAT Cut=-OX; U+=Cut*UL/OXL; UL-=Cut*UL/OXL; OXL-=Cut; OX=0.f; }
+		if( OY<0.f ) { FLOAT Cut=-OY; V+=Cut*VL/OYL; VL-=Cut*VL/OYL; OYL-=Cut; OY=0.f; }
+		if( OX+OXL>Canvas->ClipX ) { FLOAT Keep=Canvas->ClipX-OX; UL*=Keep/OXL; OXL=Keep; }
+		if( OY+OYL>Canvas->ClipY ) { FLOAT Keep=Canvas->ClipY-OY; VL*=Keep/OYL; OYL=Keep; }
+	}
+	if( OXL<=0.f || OYL<=0.f || UL<=0.f || VL<=0.f )
+		return;
+
+	FSceneNode* Frame=Canvas->Frame;
+	FLOAT DX=Canvas->OrgX+OX, DY=Canvas->OrgY+OY;
+	if( DX<0.f ) { FLOAT Cut=-DX; U+=Cut*UL/OXL; UL-=Cut*UL/OXL; OXL-=Cut; DX=0.f; }
+	if( DY<0.f ) { FLOAT Cut=-DY; V+=Cut*VL/OYL; VL-=Cut*VL/OYL; OYL-=Cut; DY=0.f; }
+	if( DX+OXL>Frame->X ) { FLOAT Keep=Frame->X-DX; UL*=Keep/OXL; OXL=Keep; }
+	if( DY+OYL>Frame->Y ) { FLOAT Keep=Frame->Y-DY; VL*=Keep/OYL; OYL=Keep; }
+	if( !(Flags&PF_Invisible) && OXL>0.f && OYL>0.f && UL>0.f && VL>0.f )
+		Frame->Viewport->RenDev->DrawTile( Frame, Info, DX, DY, OXL, OYL, U, V, UL, VL, NULL, Canvas->Z, Color, FPlane(0,0,0,0), Flags );
+}
+#endif
+
+//
+// Draw a string of characters.
+// - returns pixels drawn
+//
+static inline INT DrawString
+(
+	DWORD			Flags, 
+	UCanvas*		Canvas, 
+	UFont*			Font, 
+	INT				DrawX, 
+	INT				DrawY,
+	const TCHAR*	Text, 
+	FPlane			Color, 
+	UBOOL			bClip, 
+	UBOOL			bHandleApersand
+)
+{
+	guardSlow(DrawString);
+
+	// Font texture pages.
+	FTextureInfo Infos[5];
+	Infos[0].Texture=Infos[1].Texture=Infos[2].Texture=Infos[3].Texture=Infos[4].Texture=NULL;
+#if (defined(__ANDROID__) || defined(PLATFORM_ANDROID)) && !UNICODE
+	FTextureInfo CyrillicInfo;
+	CyrillicInfo.Texture=NULL;
+#endif
+
+	// Draw all characters in string.
+	INT LineX = 0;
+	INT bDrawUnderline = 0;
+	INT UnderlineWidth = 0;
+	for( INT i=0; Text[i]; i++ )
+	{
+		INT bUnderlineNext = 0;
+		INT Ch = (TCHARU)Text[i];
+
+		// Handle ampersand underlining.
+		if( bHandleApersand )
+		{
+			if( bDrawUnderline )
+				Ch = (TCHARU)('_');
+			if( Text[i]=='&' )
+			{
+				if( !Text[i+1] )
+					break; 
+				if( Text[i+1]!='&' )
+				{
+					bUnderlineNext = 1;
+					Ch = (TCHARU)Text[i+1];
+				}
+			}
+		}
+
+#if (defined(__ANDROID__) || defined(PLATFORM_ANDROID)) && !UNICODE
+		FUT99AndroidCyrillicGlyph* CyrillicGlyph=NULL;
+		INT CyrillicW=0, CyrillicH=0;
+		if( UT99AndroidGetCyrillicGlyph(Font,Ch,CyrillicGlyph,CyrillicW,CyrillicH) )
+		{
+			if( CyrillicInfo.Texture!=GUT99AndroidCyrillicTexture )
+			{
+				if( CyrillicInfo.Texture ) CyrillicInfo.Texture->Unlock(CyrillicInfo);
+				GUT99AndroidCyrillicTexture->Lock(CyrillicInfo,Canvas->Viewport->CurrentTime,0,Canvas->Viewport->RenDev);
+			}
+
+			INT CharWidth=bDrawUnderline ? Min(UnderlineWidth,CyrillicW) : CyrillicW;
+			UT99AndroidDrawCyrillicGlyph(Flags,Canvas,CyrillicInfo,LineX+DrawX,DrawY,CharWidth,CyrillicH,*CyrillicGlyph,Color,bClip);
+			if( bDrawUnderline ) CharWidth=UnderlineWidth;
+			if( !bUnderlineNext ) LineX+=(INT)(CharWidth+Canvas->SpaceX);
+			else UnderlineWidth=CyrillicW;
+			bDrawUnderline=bUnderlineNext;
+			continue;
+		}
+#endif
+
+		// Process character if it's valid.
+		Ch = Font->GlyphIndex(Ch);
+		INT NewPage = Ch / Font->CharactersPerPage;
+		UTexture* Tex;
+		if( NewPage<Font->Pages.Num() && (Tex=Font->Pages(NewPage).Texture)!=NULL )
+		{
+			INT        Index    = Ch - NewPage*Font->CharactersPerPage;
+			FFontPage& PageInfo = Font->Pages(NewPage);
+			if( Index<PageInfo.Characters.Num() )
+			{
+				// Get proper font page.
+				FTextureInfo& Info = Infos[Min<INT>( NewPage, 4 )];
+				if( Info.Texture!=Tex )
+				{
+					if( Info.Texture )
+						Info.Texture->Unlock( Info );
+					Tex->Lock( Info, Canvas->Viewport->CurrentTime, 0, Canvas->Viewport->RenDev );
+				}
+				FFontCharacter& Char = PageInfo.Characters(Index);
+
+				// Compute character width.
+				INT CharWidth;
+				if( bDrawUnderline )
+					CharWidth = Min(UnderlineWidth, Char.USize);
+				else
+					CharWidth = Char.USize;
+
+				// Prepare for clipping.
+				INT X      = LineX + DrawX;
+				INT Y      = DrawY;
+				INT CU     = Char.StartU;
+				INT CV     = Char.StartV;
+				INT CUSize = CharWidth;
+				INT CVSize = Char.VSize;
+#if defined(__ANDROID__) || defined(PLATFORM_ANDROID)
+                // The retail UTFont40 'i' rectangle includes column 206 of
+                // Texture28: the neighbouring 'j' descender. Keep its advance,
+                // but exclude that final column from the drawing rectangle.
+                if(!Font->HasGlyphMap && Ch == 'i' && appStricmp(Font->GetName(), TEXT("UTFont40")) == 0)
+                    CUSize = Max(0, CUSize-1);
+#endif
+
+				// Draw if it passes clip test.
+				if
+				(	(!bClip)
+				||	(X+CUSize>0 && X<=Canvas->ClipX && Y+CVSize>0 && Y<=Canvas->ClipY) )
+				{
+					if( bClip )
+					{
+						if( X        < 0.f           ) { CU-=X; CUSize+=X; X=0;  }
+						if( Y        < 0.f           ) { CV-=Y; CVSize+=Y; Y=0;  }
+						if( X+CUSize > Canvas->ClipX ) { CUSize=(INT) (Canvas->ClipX-X); }
+						if( Y+CVSize > Canvas->ClipY ) { CVSize=(INT) (Canvas->ClipY-Y); } 
+					}
+					DrawChar( Flags, Canvas, Info, (INT) (Canvas->OrgX+X), (INT) (Canvas->OrgY+Y), CUSize, CVSize, CU, CV, CUSize, CVSize, Color );
+				}
+
+				// Update underline status.
+				if( bDrawUnderline )
+					CharWidth = UnderlineWidth;
+
+				if( !bUnderlineNext )
+					LineX += (INT) (CharWidth + Canvas->SpaceX);
+				else
+					UnderlineWidth = Char.USize;
+
+				bDrawUnderline = bUnderlineNext;
+			}
+		}
+	}
+
+	// Unlock font pages.
+	for( INT i=0; i<5; i++ )
+		if( Infos[i].Texture )
+			Infos[i].Texture->Unlock( Infos[i] );
+#if (defined(__ANDROID__) || defined(PLATFORM_ANDROID)) && !UNICODE
+	if( CyrillicInfo.Texture )
+		CyrillicInfo.Texture->Unlock( CyrillicInfo );
+#endif
+
+	return LineX;
+	unguardSlow;
+}
+
+//
+// Get a character's dimensions.
+//
+static inline void GetCharSize( UFont* Font, TCHAR InCh, INT& Width, INT& Height )
+{
+	guardSlow(GetCharSize);
+#if (defined(__ANDROID__) || defined(PLATFORM_ANDROID)) && !UNICODE
+	FUT99AndroidCyrillicGlyph* Glyph=NULL;
+	if( !UT99AndroidGetCyrillicGlyph(Font,(TCHARU)InCh,Glyph,Width,Height) )
+		UT99AndroidGetStockCharSize(Font,InCh,Width,Height);
+#else
+	Width = 0;
+	Height = 0;
+	INT Ch    = Font->GlyphIndex((TCHARU)InCh);
+	INT Page  = Ch / Font->CharactersPerPage;
+	INT Index = Ch - Page * Font->CharactersPerPage;
+	if( Page<Font->Pages.Num() && Index<Font->Pages(Page).Characters.Num() )
+	{
+		FFontCharacter& Char = Font->Pages(Page).Characters(Index);
+		Width = Char.USize;
+		Height = Char.VSize;
+	}
+#endif
+	unguardSlow;
+}
+
+//
+// Compute size and optionally print text with word wrap.
+//!!For the next generation, redesign to ignore CurX,CurY.
+//
+void VARARGS UCanvas::WrappedPrint( ERenderStyle Style, INT& XL, INT& YL, UFont* Font, UBOOL Center, const TCHAR* Text )
+{
+	guard(UCanvas::WrappedPrint);
+	if( ClipX<0 || ClipY<0 )
+		return;
+	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT")) )
+		Font = MedFont;//BigFont;!!
+	check(Font);
+	FPlane DrawColor = Color.Plane();
+
+	// Generate flags.
+	DWORD PolyFlags
+	=	(PF_NoSmooth | PF_Masked | PF_RenderHint)
+	|(	(Style==STY_None       ) ? PF_Invisible
+	:	(Style==STY_Translucent) ? PF_Translucent
+	:	(Style==STY_Modulated  ) ? PF_Modulated
+	:	                           0);
+
+	// Process each word until the current line overflows.
+	XL = YL = 0;
+	do
+	{
+		INT iCleanWordEnd=0, iTestWord;
+		INT TestXL=(INT)CurX, CleanXL=0;
+		INT TestYL=0,    CleanYL=0;
+		UBOOL GotWord=0;
+		for( iTestWord=0; Text[iTestWord]!=0 && Text[iTestWord]!='\n'; )
+		{
+			INT ChW, ChH;
+			GetCharSize(Font, Text[iTestWord], ChW, ChH);
+			TestXL              += (INT) (ChW + SpaceX);
+			TestYL               = Max( TestYL, ChH + (INT)SpaceY );
+			if( TestXL>ClipX )
+				break;
+			iTestWord++;
+			UBOOL WordBreak = Text[iTestWord]==' ' || Text[iTestWord]=='\n' || Text[iTestWord]==0;
+			if( WordBreak || !GotWord )
+			{
+				iCleanWordEnd = iTestWord;
+				CleanXL       = TestXL;
+				CleanYL       = TestYL;
+				GotWord       = GotWord || WordBreak;
+			}
+		}
+		if( iCleanWordEnd==0 )
+			break;
+
+		// Sucessfully split this line, now draw it.
+		if( Style!=STY_None && OrgY+CurY<Frame->Y && OrgY+CurY+CleanYL>0 )
+		{
+			FString TextLine(Text);
+			INT LineX = Center ? (INT) (CurX+(ClipX-CleanXL)/2) : (INT) (CurX);
+			LineX += DrawString( PolyFlags, this, Font, LineX, (INT) CurY, *(TextLine.Left(iCleanWordEnd)), DrawColor, 0, 0 );
+			CurX = LineX;
+		}
+
+		// Update position.
+		CurX  = 0;
+		CurY += CleanYL;
+		YL   += CleanYL;
+		XL    = Max(XL,CleanXL);
+		Text += iCleanWordEnd;
+
+		// Skip whitespace after word wrap.
+		while( *Text==' ' )
+			Text++;
+	}
+	while( *Text );
+
+	unguardf(( TEXT("(%s)"), Text ));
+}
+
+/*-----------------------------------------------------------------------------
+	UCanvas derived text functions.
+-----------------------------------------------------------------------------*/
+
+//
+// Calculate the size of a string built from a font, word wrapped
+// to a specified region.
+//
+void UCanvas::WrappedStrLenf( UFont* Font, INT& XL, INT& YL, const TCHAR* Fmt, ... )
+{
+	TCHAR Text[4096];
+	GET_VARARGS( Text, ARRAY_COUNT(Text), Fmt );
+
+	guard(UCanvas::WrappedStrLenf);
+	WrappedPrint( STY_None, XL, YL, Font, 0, Text );
+	unguard;
+}
+
+//
+// Wrapped printf.
+//
+void VARARGS UCanvas::WrappedPrintf( UFont* Font, UBOOL Center, const TCHAR* Fmt, ... )
+{
+	TCHAR Text[4096];
+	GET_VARARGS( Text, ARRAY_COUNT(Text), Fmt );
+
+	guard(UCanvas::WrappedPrintf);
+	INT XL=0, YL=0;
+	WrappedPrint( STY_Normal, XL, YL, Font, Center, Text );
+	unguard;
+}
+
+/*-----------------------------------------------------------------------------
+	UCanvas object functions.
+-----------------------------------------------------------------------------*/
+
+void UCanvas::Init( UViewport* InViewport )
+{
+	guard(UCanvas::UCanvas);
+	Viewport = InViewport;
+	unguard;
+}
+void UCanvas::Update( FSceneNode* InFrame )
+{
+	guard(UCanvas::Update);
+#if defined(PLATFORM_ANDROID)
+    UglyFontScaling=1;
+#endif
+
+	// Call UnrealScript to reset.
+	eventReset();
+
+	// Copy size parameters from viewport.
+	Frame = InFrame;
+	ClipX = Frame->X;
+	ClipY = Frame->Y;
+#if UNREAL_GOLD_226
+	GUnrealCanvasScale = UnrealAndroidConfiguredCanvasScale( Viewport );
+	ClipX /= GUnrealCanvasScale;
+	ClipY /= GUnrealCanvasScale;
+#endif
+	X = (INT) ClipX;
+	Y = (INT) ClipY;
+
+	unguard;
+}
+
+/*-----------------------------------------------------------------------------
+	UCanvas natives.
+-----------------------------------------------------------------------------*/
+
+void UCanvas::execStrLen( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execStrLen);
+
+	P_GET_STR(InText);
+	P_GET_FLOAT_REF(XL);
+	P_GET_FLOAT_REF(YL);
+	P_FINISH;
+
+	INT XLi, YLi;
+	INT OldCurX, OldCurY;
+	OldCurX = (INT) CurX;
+	OldCurY = (INT) CurY;
+	CurX = 0;
+	CurY = 0;
+	WrappedStrLenf( Font, XLi, YLi, TEXT("%s"), *InText );
+	CurY = OldCurY;
+	CurX = OldCurX;
+	*XL = XLi;
+	*YL = YLi;
+
+	unguard;
+}
+IMPLEMENT_FUNCTION( UCanvas, 464, execStrLen );
+
+void UCanvas::execDrawText( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawText);
+	P_GET_STR(InText);
+	P_GET_UBOOL_OPTX(CR,1);
+	P_FINISH;
+	if( !Font )
+	{
+		Stack.Logf( TEXT("DrawText: No font") );
+		return;
+	}
+	INT XL=0, YL=0;
+	if( Style!=STY_None )
+		WrappedPrint( (ERenderStyle)Style, XL, YL, Font, bCenter, *InText );
+	CurX += XL;
+	CurYL = Max(CurYL,(FLOAT)YL);
+	if( CR )
+	{
+		CurX  = 0;
+		CurY += CurYL;
+		CurYL = 0;
+	}
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 465, execDrawText );
+
+void UCanvas::execDrawTile( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawTile);
+	P_GET_OBJECT(UTexture,Tex);
+	P_GET_FLOAT(XL);
+	P_GET_FLOAT(YL);
+	P_GET_FLOAT(U);
+	P_GET_FLOAT(V);
+	P_GET_FLOAT(UL);
+	P_GET_FLOAT(VL);
+	P_FINISH;
+	if( !Tex )
+	{
+		Stack.Logf( TEXT("DrawTile: Missing Texture") );
+		return;
+	}
+	if( Style!=STY_None ) DrawTile
+	(
+		Tex,
+		OrgX+CurX,
+		OrgY+CurY,
+		XL,
+		YL,
+		U,
+		V,
+		UL,
+		VL,
+		NULL,
+		Z,
+		Color.Plane(),
+		FPlane(0,0,0,0),
+		PF_TwoSided | (Style==STY_Translucent ? PF_Translucent : Style==STY_Modulated ? PF_Modulated : 0) | (bNoSmooth ? PF_NoSmooth : 0)
+	);
+	CurX += XL + SpaceX;
+	CurYL = Max(CurYL,YL);
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 466, execDrawTile );
+
+void UCanvas::execDrawActor( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawActor);
+	P_GET_OBJECT(AActor, Actor);
+	P_GET_UBOOL(WireFrame);
+	P_GET_UBOOL_OPTX(ClearZ, 0);
+	P_FINISH;
+
+	INT OldRendMap;
+	OldRendMap = Viewport->Actor->RendMap;
+	if( WireFrame )
+		Viewport->Actor->RendMap = REN_Wire;
+	Actor->bHidden = 0;
+	if( ClearZ )
+		Viewport->RenDev->ClearZ( Frame );
+	Render->DrawActor( Frame, Actor );
+	Actor->bHidden = 1;
+	Viewport->Actor->RendMap = OldRendMap;
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 467, execDrawActor );
+
+void UCanvas::execDrawClippedActor( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawClippedActor);
+	P_GET_OBJECT(AActor, Actor);
+	P_GET_UBOOL(WireFrame);
+	P_GET_INT(X);
+	P_GET_INT(Y);
+	P_GET_INT(XB);
+	P_GET_INT(YB);
+	P_GET_UBOOL_OPTX(ClearZ, 0);
+	P_FINISH;
+	
+	INT OldX, OldY, OldXB, OldYB;
+	INT OldRendMap;
+
+	OldX = Frame->X;
+	OldY = Frame->Y;
+	OldXB = Frame->XB;
+	OldYB = Frame->YB;
+
+	// UT99_ANDROID_V62_DRAWCLIPPEDACTOR_VIEWPORT:
+	// The menu preview actor changes the FSceneNode rectangle, but the GLES
+	// render device keeps its own viewport/projection state.  Push the clipped
+	// scene node into the render device so the player preview is rendered inside
+	// the intended UWindow preview rectangle instead of stretched across the
+	// fullscreen logical viewport.
+	if( X<=0 || Y<=0 )
+		return;
+#if UNREAL_GOLD_226
+	X = appRound(X * GUnrealCanvasScale); Y = appRound(Y * GUnrealCanvasScale);
+	XB = appRound(XB * GUnrealCanvasScale); YB = appRound(YB * GUnrealCanvasScale);
+#endif
+
+	Frame->X = X;
+	Frame->Y = Y;
+	Frame->XB = XB;
+	Frame->YB = YB;
+
+	FVector V(0,0,0);
+	FRotator R(0,0,0);
+
+	Frame->ComputeRenderCoords( V, R );
+	Frame->ComputeRenderSize();
+	if( Viewport && Viewport->RenDev )
+		Viewport->RenDev->SetSceneNode( Frame );
+
+	OldRendMap = Viewport->Actor->RendMap;
+	if (WireFrame)
+		Viewport->Actor->RendMap = REN_Wire;
+	Actor->bHidden = 0;
+	if (ClearZ)
+		Viewport->RenDev->ClearZ(Frame);
+	Render->DrawActor(Frame, Actor);
+	Actor->bHidden = 1;
+	Viewport->Actor->RendMap = OldRendMap;
+	
+	Frame->X = OldX;
+	Frame->Y = OldY;
+	Frame->XB = OldXB;
+	Frame->YB = OldYB;
+	Frame->ComputeRenderCoords( V, R );
+	Frame->ComputeRenderSize();
+	if( Viewport && Viewport->RenDev )
+		Viewport->RenDev->SetSceneNode( Frame );
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 471, execDrawClippedActor );
+
+void UCanvas::execDrawTileClipped( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawTileClipped);
+	P_GET_OBJECT(UTexture,Tex);
+	P_GET_FLOAT(XL);
+	P_GET_FLOAT(YL);
+	P_GET_FLOAT(U);
+	P_GET_FLOAT(V);
+	P_GET_FLOAT(UL);
+	P_GET_FLOAT(VL);
+	P_FINISH;
+	if( !Tex )
+	{
+		Stack.Logf( TEXT("DrawTileClipped: Missing Texture") );
+		return;
+	}
+
+	// Clip to ClipX and ClipY
+	if( XL > 0 && YL > 0 )
+	{		
+		if( CurX<0 )
+			{FLOAT C=CurX*UL/XL; U-=C; UL+=C; XL+=CurX; CurX=0;}
+		if( CurY<0 )
+			{FLOAT C=CurY*VL/YL; V-=C; VL+=C; YL+=CurY; CurY=0;}
+		if( XL>ClipX-CurX )
+			{UL+=(ClipX-CurX-XL)*UL/XL; XL=ClipX-CurX;}
+		if( YL>ClipY-CurY )
+			{VL+=(ClipY-CurY-YL)*VL/YL; YL=ClipY-CurY;}
+	
+		if( Style!=STY_None ) 
+			DrawTile
+			(
+				Tex,
+				OrgX+CurX,
+				OrgY+CurY,
+				XL,
+				YL,
+				U,
+				V,
+				UL,
+				VL,
+				NULL,
+				Z,
+				Color.Plane(),
+				FPlane(0,0,0,0),
+				PF_TwoSided | (/*Style==STY_Masked ? PF_Masked :*/ Style==STY_Translucent ? PF_Translucent : Style==STY_Modulated ? PF_Modulated : 0) | (bNoSmooth ? PF_NoSmooth : 0)
+			);
+
+		CurX += XL + SpaceX;
+		CurYL = Max(CurYL,YL);
+	}
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 468, execDrawTileClipped );
+
+void UCanvas::execDrawTextClipped( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawTextClipped);
+	P_GET_STR(InText);
+	P_GET_UBOOL_OPTX(CheckHotKey, 0);
+	P_FINISH;
+
+	if( !Font )
+	{
+		Stack.Logf( TEXT("DrawTextClipped: No font") );
+		return;
+	}
+
+	if( (Font==LargeFont || Font==BigFont) && appStricmp(UObject::GetLanguage(),TEXT("INT")) )
+		Font = MedFont;//BigFont;//!!
+	check(Font);
+
+	// Generate flags.
+	DWORD PolyFlags
+	=	(PF_NoSmooth | PF_Masked | PF_RenderHint)
+	|(	(Style==STY_None       ) ? PF_Invisible
+	:	(Style==STY_Translucent) ? PF_Translucent
+	:	(Style==STY_Modulated  ) ? PF_Modulated
+	:	                           0);
+
+	FPlane DrawColor = Color.Plane();
+	DrawString( PolyFlags, this, Font, (INT) CurX, (INT) CurY, *InText, DrawColor, 1, CheckHotKey );
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 469, execDrawTextClipped );
+
+void UCanvas::execTextSize( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execTextSize);
+	P_GET_STR(InText);
+	P_GET_FLOAT_REF(XL);
+	P_GET_FLOAT_REF(YL);
+	P_FINISH;
+
+	if( !Font )
+	{
+		Stack.Logf( TEXT("TextSize: No font") );
+		return;
+	}
+
+	INT XLi = 0;
+	INT YLi = 0;
+	INT W, H;
+
+	for( INT i=0; (*InText)[i]; i++)
+	{
+		GetCharSize( Font, (*InText)[i], W, H );
+		
+		XLi += W;
+		if(YLi < H)
+			YLi = H;	
+	}
+	
+	*XL = XLi;
+	*YL = YLi;
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 470, execTextSize );
+
+// execDrawPortal
+// Written by Andrew Scheidecker
+// Edited by Brandon Reinhart
+void UCanvas::execDrawPortal( FFrame& Stack, RESULT_DECL )
+{
+	guard(UCanvas::execDrawPortal);
+	P_GET_INT(X);
+	P_GET_INT(Y);
+	P_GET_INT(Width);
+	P_GET_INT(Height);
+	P_GET_OBJECT(AActor,CamActor);
+	P_GET_VECTOR(CamLocation);
+	P_GET_ROTATOR(CamRotation);
+	P_GET_INT_OPTX(FOV, 90);
+	P_GET_UBOOL_OPTX(ClearZ, 1);
+	P_FINISH;
+#if UNREAL_GOLD_226
+	X = appRound(X * GUnrealCanvasScale); Y = appRound(Y * GUnrealCanvasScale);
+	Width = appRound(Width * GUnrealCanvasScale); Height = appRound(Height * GUnrealCanvasScale);
+#endif
+
+	FSceneNode* NewNode;
+	FScreenBounds Bounds;
+
+	FLOAT SavedFovAngle = Viewport->Actor->FovAngle;
+	Viewport->Actor->FovAngle = FOV;
+	NewNode = Render->CreateMasterFrame
+	(
+		Viewport,
+		CamLocation,
+		CamRotation,
+		&Bounds
+	);
+	check( NewNode );
+
+	NewNode->XB = X;
+	NewNode->YB = Y;
+	NewNode->X = Width;
+	NewNode->Y = Height;
+	NewNode->ComputeRenderSize();
+
+	if( ClearZ )
+		GRenderDevice->ClearZ( NewNode );
+
+	Render->DrawWorld( NewNode );
+	Render->FinishMasterFrame();
+
+	Viewport->Actor->FovAngle = SavedFovAngle;
+
+	unguardexec;
+}
+IMPLEMENT_FUNCTION( UCanvas, 480, execDrawPortal );
+
+IMPLEMENT_CLASS(UCanvas);
+
+/*-----------------------------------------------------------------------------
+	The End.
+-----------------------------------------------------------------------------*/

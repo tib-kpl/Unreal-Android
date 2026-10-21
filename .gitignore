@@ -3,3 +3,5 @@ source/.gradle/
 source/build/
 source/app/build/
 source/app/.cxx/
+source/engine226/build/
+source/engine226/.cxx/

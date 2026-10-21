@@ -849,7 +849,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     }
 
     @android.annotation.TargetApi(21)
-    private static final class Api21Window {
+    static final class Api21Window {
         private Api21Window() {}
         static void makeBarsTransparent(android.view.Window window) {
             window.setStatusBarColor(Color.TRANSPARENT);
@@ -864,7 +864,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     }
 
     @android.annotation.TargetApi(28)
-    private static final class Api28Window {
+    static final class Api28Window {
         private Api28Window() {}
         static void enableShortEdgeCutout(android.view.Window window) {
             WindowManager.LayoutParams attrs = window.getAttributes();
@@ -874,7 +874,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     }
 
     @android.annotation.TargetApi(30)
-    private static final class Api30Window {
+    static final class Api30Window {
         private Api30Window() {}
         static void disableDecorFitting(android.view.Window window) {
             window.setDecorFitsSystemWindows(false);
