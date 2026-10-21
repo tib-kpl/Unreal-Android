@@ -15,11 +15,19 @@ import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
-/** Android settings opened from the gear of the Unreal Gold game screen. */
+/**
+ * Android settings opened from the gear of both game screens (Unreal Gold and
+ * v200). It runs in the :unreal226 process, so for v200, whose engine shares
+ * the launcher's process, it ends the game itself before reopening the launcher.
+ */
 public final class GoldSettingsActivity extends Activity {
     static final int OPEN = 3520, RESTART = 3521, DATA = 3522, EDIT_TOUCH = 3523, RESET_TOUCH = 3524;
+    static final String EXTRA_V200 = "com.ast.unreal.EXTRA_V200";
+    static final String EXTRA_GAME_PID = "com.ast.unreal.EXTRA_GAME_PID";
     private static final String[] NAMES = {"English", "Français", "Deutsch", "Español", "Italiano"};
     private static final String[] CODES = {"int", "frt", "det", "est", "itt"};
+    private static final String[] V200_CODES = {UnrealDataPaths.LANGUAGE_AUTO, UnrealDataPaths.LANGUAGE_FRENCH, UnrealDataPaths.LANGUAGE_ENGLISH};
+    private boolean v200;
     private String selectedLanguage;
     private boolean selectedClassicMenu;
     private boolean french;
@@ -57,7 +65,9 @@ public final class GoldSettingsActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         french = "fr".equalsIgnoreCase(getResources().getConfiguration().locale.getLanguage());
-        selectedLanguage = state == null ? UnrealGold.language(this) : state.getString("language", "int");
+        v200 = getIntent().getBooleanExtra(EXTRA_V200, false);
+        String currentLanguage = v200 ? UnrealDataPaths.gameLanguagePreference(this) : UnrealGold.language(this);
+        selectedLanguage = state == null ? currentLanguage : state.getString("language", currentLanguage);
         selectedClassicMenu = state == null ? UnrealGold.classicMenu(this) : state.getBoolean("classicMenu", true);
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
@@ -104,25 +114,35 @@ public final class GoldSettingsActivity extends Activity {
                         .show()));
 
         body.addView(label(text("Langue du jeu", "Game language"), 17));
-        Spinner language = spinner(NAMES, Math.max(0, java.util.Arrays.asList(CODES).indexOf(selectedLanguage)));
+        final String[] codes = v200 ? V200_CODES : CODES;
+        String[] names = v200 ? new String[]{text("Automatique (langue d’Android)", "Automatic (Android language)"), "Français", "English"} : NAMES;
+        Spinner language = spinner(names, Math.max(0, java.util.Arrays.asList(codes).indexOf(selectedLanguage)));
         language.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedLanguage = CODES[position]; }
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedLanguage = codes[position]; }
             public void onNothingSelected(AdapterView<?> parent) { }
         });
         body.addView(language);
-        body.addView(label(text("Les voix et textes doivent être présents dans les fichiers du jeu ; sinon l’anglais est utilisé.",
-                "Voices and texts must be present in the game data; otherwise English is used."), 14));
+        body.addView(label(v200
+                ? text("La traduction française est téléchargée depuis OldUnreal au redémarrage si nécessaire.",
+                    "The French translation is downloaded from OldUnreal on restart when needed.")
+                : text("Les voix et textes doivent être présents dans les fichiers du jeu ; sinon l’anglais est utilisé.",
+                    "Voices and texts must be present in the game data; otherwise English is used."), 14));
 
-        body.addView(label(text("Menu du jeu", "Game menu"), 17));
-        Spinner menu = spinner(new String[]{text("Classique (console, comme la v200)", "Classic (console, as in v200)"),
-                text("Fenêtres (UMenu d’Unreal Gold)", "Windows (Unreal Gold UMenu)")}, selectedClassicMenu ? 0 : 1);
-        menu.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedClassicMenu = position == 0; }
-            public void onNothingSelected(AdapterView<?> parent) { }
-        });
-        body.addView(menu);
-        body.addView(button(text("Appliquer la langue et le menu, relancer le jeu…", "Apply language and menu, restart…"), () ->
-                confirm(text("Quitter la partie et relancer le jeu avec ces réglages ?", "Leave the game and restart with these settings?"), RESTART)));
+        if (v200) {
+            body.addView(button(text("Appliquer la langue et relancer le jeu…", "Apply language and restart…"), () ->
+                    confirm(text("Quitter la partie et relancer le jeu avec cette langue ?", "Leave the game and restart with this language?"), RESTART)));
+        } else {
+            body.addView(label(text("Menu du jeu", "Game menu"), 17));
+            Spinner menu = spinner(new String[]{text("Classique (console, comme la v200)", "Classic (console, as in v200)"),
+                    text("Fenêtres (UMenu d’Unreal Gold)", "Windows (Unreal Gold UMenu)")}, selectedClassicMenu ? 0 : 1);
+            menu.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedClassicMenu = position == 0; }
+                public void onNothingSelected(AdapterView<?> parent) { }
+            });
+            body.addView(menu);
+            body.addView(button(text("Appliquer la langue et le menu, relancer le jeu…", "Apply language and menu, restart…"), () ->
+                    confirm(text("Quitter la partie et relancer le jeu avec ces réglages ?", "Leave the game and restart with these settings?"), RESTART)));
+        }
 
         body.addView(label(text("Emplacement du jeu", "Game location"), 17));
         TextView path = label(getIntent().getStringExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT), 13);
@@ -156,6 +176,11 @@ public final class GoldSettingsActivity extends Activity {
         new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK).setMessage(message)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(text("Continuer", "Continue"), (dialog, which) -> {
+                    if (v200) {
+                        if (result == RESTART) UnrealDataPaths.setGameLanguagePreference(this, selectedLanguage);
+                        restartV200(result == DATA);
+                        return;
+                    }
                     if (result == RESTART) {
                         UnrealGold.setLanguage(this, selectedLanguage);
                         UnrealGold.classicMenu(this, selectedClassicMenu);
@@ -163,6 +188,20 @@ public final class GoldSettingsActivity extends Activity {
                     setResult(result);
                     finish();
                 }).show();
+    }
+
+    /**
+     * The v200 engine cannot restart inside its process, which is also the
+     * launcher's: end it from this process, then open the launcher in a new one.
+     */
+    private void restartV200(boolean manageData) {
+        int gamePid = getIntent().getIntExtra(EXTRA_GAME_PID, 0);
+        if (gamePid > 0 && gamePid != android.os.Process.myPid()) android.os.Process.killProcess(gamePid);
+        android.content.Intent launcher = new android.content.Intent(this, MainActivity.class);
+        launcher.putExtra(MainActivity.EXTRA_MANAGE_DATA, manageData);
+        launcher.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(launcher);
+        finish();
     }
 
     @Override

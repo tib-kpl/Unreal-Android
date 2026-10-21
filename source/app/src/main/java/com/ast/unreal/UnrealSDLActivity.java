@@ -25,6 +25,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     private File selectedRoot;
     private InputManager inputManager;
     private UnrealRetroTouchBridge retroTouchBridgeV215; // UNREAL_ANDROID_RETROTOUCH_V215
+    private View settingsGear;
     private long retroTouchConfigReadMsV215;
     private boolean retroTouchEnabledCacheV215 = true;
 
@@ -178,6 +179,25 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
         hideSystemUi();
         scheduleImmersiveRefresh();
         installRetroTouchV215(); // UNREAL_ANDROID_RETROTOUCH_V215
+        File root = selectedRootFromIntentOrScan();
+        if (root != null) settingsGear = AndroidSettingsGear.install(this, root, true);
+    }
+
+    @Override
+    protected void onActivityResult(int request, int result, android.content.Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != GoldSettingsActivity.OPEN || retroTouchBridgeV215 == null) return;
+        if (result == GoldSettingsActivity.RESET_TOUCH) retroTouchBridgeV215.resetLayout();
+        if (result == GoldSettingsActivity.EDIT_TOUCH && settingsGear != null) {
+            // Wait for the bridge to restore its mode after the Activity resumes.
+            settingsGear.postDelayed(() -> {
+                if (!retroTouchBridgeV215.startLayoutEditing()) {
+                    boolean french = "fr".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage());
+                    android.widget.Toast.makeText(this, french ? "La manette tactile est masquée pour le moment"
+                            : "The touch controller is hidden right now", android.widget.Toast.LENGTH_LONG).show();
+                }
+            }, 600);
+        }
     }
 
     @Override
@@ -423,9 +443,21 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
         // During Unreal.Intro the RetroTouch view intentionally stays OFF so the Nali flyby is
         // unobstructed. Intercept only that intro gesture here; all other touch events continue
         // through RetroTouch/SDL normally.
-        if (retroTouchBridgeV215 != null && retroTouchBridgeV215.handleIntroTouchV217(event))
+        // A gesture that starts on the settings gear belongs to the gear.
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) gearGesture = isOnSettingsGear(event);
+        if (!gearGesture && retroTouchBridgeV215 != null && retroTouchBridgeV215.handleIntroTouchV217(event))
             return true;
         return super.dispatchTouchEvent(event);
+    }
+
+    private boolean gearGesture;
+
+    private boolean isOnSettingsGear(MotionEvent event) {
+        if (settingsGear == null || settingsGear.getVisibility() != View.VISIBLE) return false;
+        int[] at = new int[2];
+        settingsGear.getLocationOnScreen(at);
+        float x = event.getRawX(), y = event.getRawY();
+        return x >= at[0] && x < at[0] + settingsGear.getWidth() && y >= at[1] && y < at[1] + settingsGear.getHeight();
     }
 
     @Override
@@ -656,6 +688,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     // UNREAL_ANDROID_RETROTOUCH_V215
     private void bringRetroTouchToFrontV215() {
         if (retroTouchBridgeV215 != null) retroTouchBridgeV215.bringToFront();
+        AndroidSettingsGear.raise(settingsGear);
     }
 
     private File unrealSystemDirV215() {

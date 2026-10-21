@@ -3,6 +3,16 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.1
+
+- Android settings gear is now available with both v200 and Gold game files,
+  including during the v200 intro, without taking focus from the controller.
+- v200 touch controls support automatic/always/hidden mode, opacity and layout
+  editing/reset. Its settings also provide game language selection, a restart
+  and access to the game data manager.
+- “Use my Unreal folder” uses an existing v200 folder directly, without copying
+  its data. The selected path is remembered; ZIP import remains available.
+
 ## 2.4.0
 
 Based on upstream Unreal Android 2.3.0, with its stability and performance fixes.

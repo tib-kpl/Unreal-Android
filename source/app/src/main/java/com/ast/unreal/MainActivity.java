@@ -128,7 +128,7 @@ public class MainActivity extends Activity {
         if (result != null) activity.handleImportResult(result);
     }
 
-    private void startImport(final boolean zip, final Uri uri) {
+    private void startZipImport(final Uri uri) {
         synchronized (IMPORT_LOCK) {
             if (sImportRunning) return;
             sImportRunning = true;
@@ -138,9 +138,7 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             UnrealDataPaths.ImportResult result = null;
             try {
-                result = zip
-                        ? UnrealDataPaths.importUnrealZip(appContext, uri)
-                        : UnrealDataPaths.importUnrealFolderFromSaf(appContext, uri);
+                result = UnrealDataPaths.importUnrealZip(appContext, uri);
             } catch (Throwable t) {
                 result = UnrealDataPaths.ImportResult.fail("Import failed.", t);
             } finally {
@@ -150,7 +148,7 @@ public class MainActivity extends Activity {
                 }
                 new Handler(Looper.getMainLooper()).post(MainActivity::deliverPendingImportResult);
             }
-        }, zip ? "UE1ZipImport" : "UE1FolderImport").start();
+        }, "UE1ZipImport").start();
     }
 
     private void setKeepScreenOn(boolean on) {
@@ -294,6 +292,7 @@ public class MainActivity extends Activity {
     }
 
     private void launchGame(File root) {
+        UnrealDataPaths.rememberUnrealRoot(this, root);
         UnrealGold.forget(this);
         Intent intent = new Intent(this, UnrealSDLActivity.class);
         intent.putExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT, root.getAbsolutePath());
@@ -376,12 +375,12 @@ public class MainActivity extends Activity {
                 "Der gewählte Ordner bzw. die ZIP-Datei muss mindestens enthalten:\n" +
                 "System/Core.u\nSystem/Engine.u\nSystem/UnrealI.u oder System/UnrealShare.u\nMaps/*.unr" + extra,
                 "No fully readable Unreal data folder was found.\n\n" +
-                "Select the 'Unreal' folder or import a ZIP file containing the Unreal data.\n\n" +
-                "The selected folder or ZIP file must contain at least:\n" +
+                "Use your existing Unreal folder without copying, or import a ZIP file containing the Unreal data.\n\n" +
+                "Folders are used in place; ZIP files are extracted into the app folder. Required files:\n" +
                 "System/Core.u\nSystem/Engine.u\nSystem/UnrealI.u or System/UnrealShare.u\nMaps/*.unr" + extra));
         if (isFrenchUi()) {
             msg.setText("Téléchargez Unreal Gold depuis OldUnreal, utilisez un dossier Unreal Gold existant, "
-                    + "ou importez vos fichiers Unreal (dossier ou ZIP).\n\n"
+                    + "utilisez votre dossier Unreal v200 sans copie, ou importez une archive ZIP.\n\n"
                     + "L’installation Unreal Gold permet de choisir la langue, le stockage interne, la microSD ou un dossier personnel.\n\n"
                     + "Fichiers requis : System/Core.u, System/Engine.u, System/UnrealShare.u, Maps/*.unr" + extra);
         }
@@ -412,9 +411,9 @@ public class MainActivity extends Activity {
         }));
 
         Button chooseFolder = new Button(this);
-        chooseFolder.setText(g("Importer mon dossier Unreal (copie)", t("Unreal-Ordner auswählen", "Select Unreal folder")));
+        chooseFolder.setText(g("Utiliser mon dossier Unreal", t("Meinen Unreal-Ordner verwenden", "Use my Unreal folder")));
         chooseFolder.setAllCaps(false);
-        chooseFolder.setOnClickListener(v -> openUnrealFolderPicker());
+        chooseFolder.setOnClickListener(v -> requestFileAccess(this::openUnrealFolderPicker));
         body.addView(chooseFolder);
 
         Button chooseZip = new Button(this);
@@ -585,20 +584,28 @@ public class MainActivity extends Activity {
             showMissingDataScreen();
             return;
         }
-        if (UnrealGold.isGoldData(folder) && UnrealDataPaths.hasRequiredData(folder)) {
-            // A valid Unreal Gold folder is used in place, without copying.
-            dialog().setTitle(g("Unreal Gold trouvé", "Unreal Gold found"))
+        if (UnrealDataPaths.hasRequiredData(folder) && (chosen == null || UnrealGold.isGoldData(folder))) {
+            // Both engines require writable local paths for configs and saves.
+            if (!folder.canWrite() || !new File(folder, "System").canWrite()) {
+                lastImportMessage = g("Ce dossier doit être accessible en écriture pour les réglages et sauvegardes : ",
+                        "This folder must be writable for settings and saves: ") + folder.getAbsolutePath();
+                showMissingDataScreen();
+                return;
+            }
+            boolean gold = UnrealGold.isGoldData(folder);
+            dialog().setTitle(gold ? g("Unreal Gold trouvé", "Unreal Gold found") : g("Unreal v200 trouvé", "Unreal v200 found"))
                     .setMessage(g("Les fichiers de ce dossier seront utilisés directement.\n", "The files in this folder will be used directly.\n")
                             + folder.getAbsolutePath())
                     .setPositiveButton(g("Utiliser ces fichiers", "Use these files"), (d, which) -> {
-                        UnrealGold.remember(this, folder, null);
-                        launchGold(folder);
+                        selectedRoot = folder;
+                        startGameWithLanguage(folder);
                     })
                     .setNegativeButton(android.R.string.cancel, null).show();
             return;
         }
         if (chosen == null) {
-            lastImportMessage = g("Aucun fichier Unreal Gold (version 226) dans : ", "No Unreal Gold (version 226) files in: ")
+            lastImportMessage = g("Aucun dossier Unreal valide trouvé (System/Core.u, System/Engine.u et Maps/*.unr requis) dans : ",
+                    "No valid Unreal folder found (requires System/Core.u, System/Engine.u and Maps/*.unr) in: ")
                     + folder.getAbsolutePath();
             showMissingDataScreen();
             return;
@@ -789,7 +796,7 @@ public class MainActivity extends Activity {
         takePersistableReadPermission(uri);
 
         if (requestCode == REQ_SELECT_UNREAL_FOLDER) {
-            importFolderInBackground(uri);
+            onParentFolderChosen(treeUriToFile(uri));
         } else {
             importZipInBackground(uri);
         }
@@ -812,20 +819,12 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void importFolderInBackground(Uri uri) {
-        showBusyScreen(
-                t("Unreal-Daten werden importiert", "Importing Unreal data"),
-                t("Der ausgewählte Ordner wird geprüft und in den sicheren App-Ordner kopiert.\nDas kann je nach SD-Karte einige Minuten dauern.",
-                  "The selected folder is being checked and copied into the safe app folder.\nThis may take a few minutes depending on the SD card."));
-        startImport(false, uri);
-    }
-
     private void importZipInBackground(Uri uri) {
         showBusyScreen(
                 t("Unreal-ZIP wird importiert", "Importing Unreal ZIP"),
                 t("Die ZIP-Datei wird geprüft und in den sicheren App-Ordner entpackt.\nDas kann je nach Gerät einige Minuten dauern.",
                   "The ZIP file is being checked and extracted into the safe app folder.\nThis may take a few minutes depending on the device."));
-        startImport(true, uri);
+        startZipImport(uri);
     }
 
     private void handleImportResult(UnrealDataPaths.ImportResult result) {

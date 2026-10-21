@@ -143,6 +143,12 @@ final class UnrealDataPaths {
         return new File(base, "Unreal");
     }
 
+    /** Remember a selected v200 folder without copying its game data. */
+    static void rememberUnrealRoot(Context context, File root) {
+        context.getSharedPreferences("unreal_data_location", Context.MODE_PRIVATE).edit()
+                .putString("root", root.getAbsolutePath()).commit();
+    }
+
     static File findBestUnrealRoot(Context context) {
         List<File> candidates = candidateRoots(context);
         for (File candidate : candidates) {
@@ -159,6 +165,9 @@ final class UnrealDataPaths {
         ArrayList<File> out = new ArrayList<>();
         HashSet<String> seen = new HashSet<>();
 
+        String selected = context.getSharedPreferences("unreal_data_location", Context.MODE_PRIVATE)
+                .getString("root", null);
+        if (selected != null) addCandidate(out, seen, new File(selected));
         addCandidate(out, seen, primaryAppRoot(context));
         File[] appExternalDirs = externalFilesDirsCompat(context);
         if (appExternalDirs != null) {

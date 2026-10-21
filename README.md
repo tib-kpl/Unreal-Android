@@ -66,7 +66,7 @@ the original Unreal v200 engine. The launcher selects the engine from the game d
 ## ◈ Features
 
 - Android support from Android 4.x (OUYA) up to Android 16
-- Improved Game Data Import – Unreal data can be imported via folder or ZIP selection and automatically installs to the app's data folder
+- Game data selection – use an existing Unreal folder directly without copying, or import a ZIP into the app's data folder
 - Android Storage Access Fixed – SAF support added for modern Android versions where direct SD/file access is restricted
 - Legacy storage behavior friendly for old sideload devices (place game data on your microSD/Unreal folder)
 - Local WiFi multiplayer and botmatches are available
@@ -92,10 +92,16 @@ working unchanged.
   game language (English, French, German, Spanish, Italian) and the location:
   internal storage, SD card, or any folder (Android "All files access" is then
   requested). An existing Unreal Gold folder can also be used in place.
-- **Android settings gear** – in game, the gear at the top right opens the
+- **Android settings gear (v200 and Gold)** – in game, the gear at the top right opens the
   on-screen controller settings (automatic/always/hidden, opacity, layout
   editing and reset), the game language, the game menu, and the game data
-  manager.
+  manager. The v200 language choices are automatic, French and English;
+  the game menu choice applies to Gold.
+- **Use an existing v200 folder** – choose “Use my Unreal folder” to play
+  directly from internal storage or microSD, without copying the data into
+  the app folder. The selected location is remembered for the next launch.
+  The folder must be writable for settings and saves. ZIP import still
+  extracts into the app folder.
 - **Menus** – the classic Unreal menu, enlarged on HD screens as with v200, is
   the default. Unreal Gold's windowed UMenu remains available in the settings.
 - **Controllers and touch** – physical controllers use the v200 bindings and
@@ -122,7 +128,7 @@ Changes by version: [CHANGELOG.md](CHANGELOG.md).
 > [!IMPORTANT]
 > ## Installation procedere
 > 1. Copy the required Unreal game .zip file to your microSD card or extract it to a folder like "Downloads".  
-> 2. At first start, the game asks for this .zip file or a folder where it is extracted.  
+> 2. At first start, choose “Use my Unreal folder” to use the extracted files in place, or import the .zip file into the app folder.<br>
 > 3. Installation takes a while, when finished the game starts.
 >
 > With this fork, the first screen also offers **Download and install Unreal Gold (OldUnreal)**:

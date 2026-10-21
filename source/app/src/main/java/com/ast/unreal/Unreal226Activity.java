@@ -3,20 +3,16 @@ package com.ast.unreal;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
 
 import org.libsdl.app.SDLActivity;
 
@@ -169,7 +165,7 @@ public class Unreal226Activity extends SDLActivity {
     float touchOpacity() { return UnrealGold.touchOpacity(this) / 100f; }
 
     void raiseAndroidSettingsButton() {
-        if (settingsGear != null) settingsGear.bringToFront();
+        AndroidSettingsGear.raise(settingsGear);
     }
 
     @Override
@@ -236,41 +232,7 @@ public class Unreal226Activity extends SDLActivity {
     }
 
     private void installAndroidSettingsButton() {
-        final float density = getResources().getDisplayMetrics().density;
-        View gear = new View(this) {
-            final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-            @Override protected void onDraw(Canvas canvas) {
-                float cx = getWidth() / 2f, cy = getHeight() / 2f, unit = Math.min(cx, cy);
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(0x66000000);
-                canvas.drawCircle(cx, cy, unit * .85f, paint);
-                paint.setColor(0xffddd5c5);
-                for (int tooth = 0; tooth < 8; tooth++) {
-                    canvas.save();
-                    canvas.rotate(tooth * 45, cx, cy);
-                    canvas.drawRect(cx - unit * .10f, cy - unit * .55f, cx + unit * .10f, cy - unit * .30f, paint);
-                    canvas.restore();
-                }
-                paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(unit * .13f);
-                canvas.drawCircle(cx, cy, unit * .34f, paint);
-                canvas.drawCircle(cx, cy, unit * .10f, paint);
-            }
-        };
-        gear.setContentDescription("Android settings");
-        // Touch only: a focusable view takes controller input away from SDL.
-        gear.setFocusable(false);
-        gear.setFocusableInTouchMode(false);
-        gear.setOnClickListener(v -> {
-            Intent intent = new Intent(this, GoldSettingsActivity.class);
-            intent.putExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT, dataRoot().getAbsolutePath());
-            startActivityForResult(intent, GoldSettingsActivity.OPEN);
-        });
-        gear.setAlpha(.45f);
-        int size = (int) (40 * density + .5f);
-        addContentView(gear, new FrameLayout.LayoutParams(size, size, Gravity.TOP | Gravity.RIGHT));
-        settingsGear = gear;
-        gear.bringToFront();
+        settingsGear = AndroidSettingsGear.install(this, dataRoot(), false);
     }
 
     @Override

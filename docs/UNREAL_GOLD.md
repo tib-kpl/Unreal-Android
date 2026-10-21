@@ -153,3 +153,21 @@ Only this adapter is copied into the selected game folder at launch.
 This is experimental work. A complete campaign playthrough, online play and
 physical-device OUYA validation remain outstanding. The rewritten UPak native
 functions may differ from the PC implementation.
+
+## Shared Android settings and v200 data folders
+
+The Android settings gear is also shown when using the original v200 engine,
+including during its intro. Touch mode, opacity and layout editing/reset apply
+to both engines. v200 offers its own automatic/French/English language choices
+and can restart or open the data manager from this screen; Gold retains its
+classic/UMenu choice and five game languages.
+
+“Use my Unreal folder” selects existing v200 data in place, using the same
+local-file access as Gold. The launcher remembers this path across process
+restarts, checks its required files again and falls back to the usual locations
+if it is unavailable. Configurations and saves are written in the selected
+folder, which must be writable. ZIP import still extracts into app storage.
+
+Validated on the Thor with a separate v200 test copy: gear during the intro,
+touch mode, layout editing, restart, data manager, selection of an external
+folder and reuse of that folder after force-stopping the app.

@@ -63,6 +63,9 @@ final class UnrealRetroTouchBridge {
     private boolean strafeRight;
     private boolean introTouchGestureCapturedV217;
     private Boolean reportedTouchModeV218; // UNREAL_ANDROID_RETROTOUCH_AUTOMODE_V218
+    // Android settings (gear): "auto" (without a physical controller), "on" or "off".
+    // Read on resume only, since the settings screen pauses this Activity.
+    private String touchPreference = "auto";
 
     private final Runnable statePoll = new Runnable() {
         @Override public void run() {
@@ -135,6 +138,8 @@ final class UnrealRetroTouchBridge {
     }
 
     void onHostResume() {
+        touchPreference = UnrealGold.touch(activity);
+        view.setAlpha(UnrealGold.touchOpacity(activity) / 100f);
         hostPaused = false;
         handler.removeCallbacks(statePoll);
         refreshMode();
@@ -147,6 +152,19 @@ final class UnrealRetroTouchBridge {
         introTouchGestureCapturedV217 = false;
         releaseMovement();
         view.setMode(RetroTouchMode.OFF); // releases every held RetroTouch button first
+    }
+
+    /** Returns false while no touch layout is shown, since there is nothing to edit. */
+    boolean startLayoutEditing() {
+        if (view.getMode() == RetroTouchMode.OFF) return false;
+        releaseMovement();
+        view.setEditing(true);
+        return true;
+    }
+
+    void resetLayout() {
+        view.resetToDefault();
+        view.saveLayout();
     }
 
     void onHostDestroy() {
@@ -227,12 +245,12 @@ final class UnrealRetroTouchBridge {
 
     private void refreshMode() {
         // UNREAL_ANDROID_RETROTOUCH_AUTOMODE_V218:
-        // Touch Controls is now an automatic input-mode status, not a manual preference.
-        // A real touchscreen with no GAMEPAD/JOYSTICK means touch mode TRUE. Any physical
-        // controller (or a device without touch hardware) means FALSE. Report only changes;
+        // The gear can force or hide touch controls. Automatic mode shows them
+        // only on a touchscreen without a physical controller. Report only changes;
         // UE1 applies the config/menu value on its own TickInput thread.
         final boolean controllerConnected = RetroTouchControllers.isControllerConnected();
-        final boolean touchMode = touchscreenAvailable && !controllerConnected;
+        final boolean touchMode = touchscreenAvailable && !"off".equals(touchPreference)
+                && ("on".equals(touchPreference) || !controllerConnected);
         if (reportedTouchModeV218 == null || reportedTouchModeV218.booleanValue() != touchMode) {
             if (activity.setRetroTouchInputModeV218(touchMode)) {
                 reportedTouchModeV218 = Boolean.valueOf(touchMode);
