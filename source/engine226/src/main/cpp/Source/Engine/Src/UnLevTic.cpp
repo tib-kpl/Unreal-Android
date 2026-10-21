@@ -7,6 +7,9 @@
 =============================================================================*/
 
 #include "EnginePrivate.h"
+#if UNREAL_GOLD_226
+extern "C" void UE1AndroidRefreshInfiniteAmmoAfterLevelTickV23(ULevel* Level);
+#endif
 #include "UnNet.h"
 
 #if defined(__ANDROID__) || defined(PLATFORM_ANDROID)
@@ -1153,6 +1156,9 @@ void ULevel::Tick( ELevelTick TickType, FLOAT DeltaSeconds )
 	}
 	unclock(ActorTickCycles);
 
+#if UNREAL_GOLD_226
+    UE1AndroidRefreshInfiniteAmmoAfterLevelTickV23(this);
+#endif
 	// Update net server and flush networking.
 	guard(UpdateNetServer);
 	if( NetDriver )

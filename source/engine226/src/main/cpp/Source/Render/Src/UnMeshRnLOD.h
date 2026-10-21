@@ -84,7 +84,15 @@ void URender::DrawLodMesh
 		// Z coordinate :in units. 60 units is about the player's height. 
 		FLOAT Z = Owner->Location.TransformPointBy(Coords).Z - Mesh->LODZDisplace;
 		FLOAT DetailDiv = Mesh->LODStrength * GlobalShapeLOD * GlobalShapeLODAdjust * FovBias * Max(1.0f,Z) * CpxBias;  	
-		FLOAT MeshVertLOD  = 430.f * ResolutionBias * Owner->DrawScale * Owner->LODBias * Mesh->MeshScaleMax / DetailDiv;  
+        FLOAT ActorLODBias = Owner->LODBias;
+#if UNREAL_GOLD_226
+        // Gold 226's Actor has no LODBias property (added in the v400 engine).
+        // Its native compatibility field stays zero: multiplying by it reduced
+        // every model, even the first-person weapon, to LODMinVerts (often 10).
+        // Use the newer engine's neutral bias for that absent/invalid value.
+        if( !(ActorLODBias > 0.0f) ) ActorLODBias = 1.0f;
+#endif
+		FLOAT MeshVertLOD  = 430.f * ResolutionBias * Owner->DrawScale * ActorLODBias * Mesh->MeshScaleMax / DetailDiv;
 		// Overscaling > 1.0 allowed; actually needed for the LOD morphing. 
 		//  150.0 was the initial setting.   340.f seems useful.
 		//  430.0 is Steve's 224 conservative setting.

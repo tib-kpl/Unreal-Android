@@ -1,5 +1,6 @@
 package com.ast.unreal;
 
+import android.content.Context;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
@@ -16,9 +17,24 @@ final class Unreal226Config {
     private Unreal226Config() {}
 
     /** Creates System/Android226.ini on first launch; later launches keep user changes. */
-    static void ensureAndroidIni(File system, String language, int screenHeight) {
+    static void ensureAndroidIni(Context context, File system, String language, boolean classicMenu, int screenHeight) {
         File ini = new File(system, Unreal226Activity.INI_NAME);
         try {
+            UnrealGold.installConsolePatch(context, system);
+            File user = new File(system, Unreal226Activity.USER_INI_NAME);
+            File stock = new File(system, "DefUser.ini");
+            File original = new File(system, "User.ini");
+            String baseline = stock.isFile() ? read(stock) : "";
+            String current = user.isFile() ? read(user) : original.isFile() ? read(original) : baseline;
+            String profile;
+            try (InputStream input = context.getAssets().open("ue1_config/User.ini")) {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) > 0) bytes.write(buffer, 0, count);
+                profile = bytes.toString("ISO-8859-1");
+            }
+            write(user, GoldControllerProfile.migrate(current, baseline, profile));
             String text;
             if (ini.isFile()) {
                 text = read(ini);
@@ -37,6 +53,11 @@ final class Unreal226Config {
             text = upsert(text, "Engine.Engine", "NetworkDevice", "IpDrv.TcpNetDriver");
             text = upsert(text, "Engine.Engine", "Language", language);
             text = soundLanguagePath(text, language);
+            // Classic Unreal menus (as with the v200 data) or the UMenu windows of Unreal Gold.
+            text = upsert(text, "Engine.Engine", "Console", classicMenu ? "UnrealGoldAndroid.ClassicConsole" : "UPak.UPakConsole");
+            // Read by the 226 engine: logical 2D scale of the classic menus and the HUD.
+            if (!text.contains("[Android]")) text = upsert(text, "Android", "UIScale", screenHeight > 540 ? "2.000000" : "1.000000");
+            text = upsert(text, "Android", "ClassicMenu", classicMenu ? "True" : "False");
             if (!ini.isFile()) {
                 text = upsert(text, "NSDLDrv.NSDLClient", "StartupFullscreen", "True");
                 text = upsert(text, "NSDLDrv.NSDLClient", "UseJoystick", "True");
@@ -113,14 +134,14 @@ final class Unreal226Config {
     }
 
     private static int indexOfLine(String text, String line) {
-        int from = 0;
-        while (true) {
-            int i = text.indexOf(line, from);
-            if (i < 0) return -1;
-            boolean lineStart = i == 0 || text.charAt(i - 1) == '\n';
-            if (lineStart) return i;
-            from = i + 1;
+        int start = 0;
+        while (start < text.length()) {
+            int end = text.indexOf('\n', start);
+            if (end < 0) end = text.length();
+            if (text.substring(start, end).trim().equalsIgnoreCase(line)) return start;
+            start = end + 1;
         }
+        return -1;
     }
 
     private static String read(File f) throws IOException {

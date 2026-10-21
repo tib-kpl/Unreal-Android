@@ -2,6 +2,9 @@
 
 # Unreal Android
 
+This branch adds experimental [Unreal Gold 226 support](docs/UNREAL_GOLD.md)
+while retaining the original v200 engine.
+
 > [!NOTE]
 > **Fork pour la traduction française** de [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android).
 > - Menus, HUD, messages et textes des cartes en français sur Unreal v1.200, avec un choix de la langue au premier lancement (puis appui long sur l'icône > « Langue du jeu »).

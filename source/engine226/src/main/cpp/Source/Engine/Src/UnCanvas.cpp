@@ -139,6 +139,44 @@ void UCanvas::StaticConstructor()
 	UCanvas scaled sprites.
 -----------------------------------------------------------------------------*/
 
+#if UNREAL_GOLD_226
+/*-----------------------------------------------------------------------------
+	Unreal Gold: 2D scale of the classic menus and HUD.
+
+	As in the v200 engine of Unreal-Android, the canvas is a logical screen
+	(Frame size / scale) and every 2D draw is scaled back to pixels. UWindow
+	consoles keep the pixel canvas: they scale themselves with GUIScale and map
+	the mouse and touches in pixels.
+-----------------------------------------------------------------------------*/
+
+static FLOAT GUnrealCanvasScale = 1.f;
+
+ENGINE_API FLOAT UnrealAndroidCanvasScale()
+{
+	return GUnrealCanvasScale;
+}
+
+static FLOAT UnrealAndroidConfiguredCanvasScale( UViewport* Viewport )
+{
+	if( !Viewport || !Viewport->Console )
+		return 1.f;
+	// The classic adapter inherits UPakConsole for mission transitions, but
+	// renders the original HUD menus. Only the Windows mode uses pixel sizing.
+	UBOOL bClassicMenu = 0;
+	GConfig->GetBool( TEXT("Android"), TEXT("ClassicMenu"), bClassicMenu );
+	if( !bClassicMenu )
+		return 1.f;
+	static FLOAT Configured = -1.f;
+	if( Configured < 0.f )
+	{
+		Configured = 1.f;
+		GConfig->GetFloat( TEXT("Android"), TEXT("UIScale"), Configured );
+		Configured = Clamp( Configured, 1.f, 4.f );
+	}
+	return Configured;
+}
+#endif
+
 //
 // Draw arbitrary aligned rectangle.
 //
@@ -161,6 +199,13 @@ void UCanvas::DrawTile
 )
 {
 	guard(UCanvas::DrawTile);
+#if UNREAL_GOLD_226
+	if( GUnrealCanvasScale != 1.f )
+	{
+		X *= GUnrealCanvasScale; Y *= GUnrealCanvasScale;
+		XL *= GUnrealCanvasScale; YL *= GUnrealCanvasScale;
+	}
+#endif
 #if defined(PLATFORM_ANDROID)
     if(bSnapToPixels)
     {
@@ -292,6 +337,13 @@ static inline void DrawChar
 )
 {
 	guardSlow(DrawChar);
+#if UNREAL_GOLD_226
+	if( GUnrealCanvasScale != 1.f )
+	{
+		X = appRound(X * GUnrealCanvasScale); Y = appRound(Y * GUnrealCanvasScale);
+		XL = appRound(XL * GUnrealCanvasScale); YL = appRound(YL * GUnrealCanvasScale);
+	}
+#endif
 
 	// Reject.
 	FSceneNode* Frame=Canvas->Frame;
@@ -308,7 +360,8 @@ static inline void DrawChar
 			{VL+=(Frame->Y-Y-YL)*VL/YL; YL=Frame->Y-Y;}
 
 		// Draw.
-		Frame->Viewport->RenDev->DrawTile( Frame, Info, X, Y, UL, VL, U, V, UL, VL, NULL, Canvas->Z, Color, FPlane(0,0,0,0), Flags );
+		// XL/YL is the screen size; it equals UL/VL unless the canvas is scaled.
+		Frame->Viewport->RenDev->DrawTile( Frame, Info, X, Y, XL, YL, U, V, UL, VL, NULL, Canvas->Z, Color, FPlane(0,0,0,0), Flags );
 	}
 	unguardSlow;
 }
@@ -810,8 +863,13 @@ void UCanvas::Update( FSceneNode* InFrame )
 	// Copy size parameters from viewport.
 	Frame = InFrame;
 	ClipX = Frame->X;
-	X = (INT) ClipX;
 	ClipY = Frame->Y;
+#if UNREAL_GOLD_226
+	GUnrealCanvasScale = UnrealAndroidConfiguredCanvasScale( Viewport );
+	ClipX /= GUnrealCanvasScale;
+	ClipY /= GUnrealCanvasScale;
+#endif
+	X = (INT) ClipX;
 	Y = (INT) ClipY;
 
 	unguard;
@@ -963,6 +1021,10 @@ void UCanvas::execDrawClippedActor( FFrame& Stack, RESULT_DECL )
 	// fullscreen logical viewport.
 	if( X<=0 || Y<=0 )
 		return;
+#if UNREAL_GOLD_226
+	X = appRound(X * GUnrealCanvasScale); Y = appRound(Y * GUnrealCanvasScale);
+	XB = appRound(XB * GUnrealCanvasScale); YB = appRound(YB * GUnrealCanvasScale);
+#endif
 
 	Frame->X = X;
 	Frame->Y = Y;
@@ -1138,6 +1200,10 @@ void UCanvas::execDrawPortal( FFrame& Stack, RESULT_DECL )
 	P_GET_INT_OPTX(FOV, 90);
 	P_GET_UBOOL_OPTX(ClearZ, 1);
 	P_FINISH;
+#if UNREAL_GOLD_226
+	X = appRound(X * GUnrealCanvasScale); Y = appRound(Y * GUnrealCanvasScale);
+	Width = appRound(Width * GUnrealCanvasScale); Height = appRound(Height * GUnrealCanvasScale);
+#endif
 
 	FSceneNode* NewNode;
 	FScreenBounds Bounds;

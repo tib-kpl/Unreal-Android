@@ -34,6 +34,11 @@ public class Unreal226Activity extends SDLActivity {
     private File root;
     private View settingsGear;
     private GoldTouchBridge touchBridge;
+    private GoldControllerInput controllerInput;
+
+    private static native void nativeGoldControllerButton(int key, boolean down);
+    private static native void nativeGoldControllerAxis(int axis, float value);
+    private static native void nativeGoldControllerReset();
 
     private static native void nativeAndroidButtonV47(int keyCode, boolean down);
     private static native void nativeAndroidAxisV47(int axis, float value);
@@ -69,7 +74,8 @@ public class Unreal226Activity extends SDLActivity {
         if (Build.VERSION.SDK_INT >= 28) UnrealSDLActivity.Api28Window.enableShortEdgeCutout(getWindow());
         if (Build.VERSION.SDK_INT >= 30) UnrealSDLActivity.Api30Window.disableDecorFitting(getWindow());
         hideSystemUi();
-        Unreal226Config.ensureAndroidIni(new File(dataRoot(), "System"), UnrealGold.language(this), screenHeight());
+        Unreal226Config.ensureAndroidIni(this, new File(dataRoot(), "System"), UnrealGold.language(this),
+                UnrealGold.classicMenu(this), screenHeight());
         // Read by the engine for the version label of the menu.
         if (Build.VERSION.SDK_INT >= 21) {
             try {
@@ -78,6 +84,11 @@ public class Unreal226Activity extends SDLActivity {
             }
         }
         super.onCreate(savedInstanceState);
+        controllerInput = new GoldControllerInput(this, new GoldControllerInput.Sink() {
+            @Override public void button(int key, boolean down) { nativeGoldControllerButton(key, down); }
+            @Override public void axis(int axis, float value) { nativeGoldControllerAxis(axis, value); }
+            @Override public void reset() { nativeGoldControllerReset(); }
+        });
         installAndroidSettingsButton();
         installTouchControls();
         scheduleImmersiveRefresh();
@@ -85,6 +96,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     protected void onPause() {
+        if (controllerInput != null) controllerInput.reset();
         if (touchBridge != null) touchBridge.pause();
         super.onPause();
     }
@@ -178,6 +190,7 @@ public class Unreal226Activity extends SDLActivity {
                 touchBridge.onHardwareDesktopInput();
             }
         }
+        if (controllerInput != null && controllerInput.key(event)) return true;
         return super.dispatchKeyEvent(event);
     }
 
@@ -186,6 +199,7 @@ public class Unreal226Activity extends SDLActivity {
         if (touchBridge != null && (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
             touchBridge.onHardwareControllerInput();
         }
+        if (controllerInput != null && controllerInput.motion(event)) return true;
         return super.dispatchGenericMotionEvent(event);
     }
 
@@ -193,10 +207,12 @@ public class Unreal226Activity extends SDLActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) scheduleImmersiveRefresh();
+        else if (controllerInput != null) controllerInput.reset();
     }
 
     @Override
     protected void onDestroy() {
+        if (controllerInput != null) controllerInput.destroy();
         boolean cleanProcessExit = isFinishing() && !isChangingConfigurations();
         super.onDestroy();
         // UE1 cannot run SDL_main twice in one process: end it so the next launch starts fresh.

@@ -7,6 +7,9 @@
 =============================================================================*/
 
 #include "EnginePrivate.h"
+#if UNREAL_GOLD_226
+extern "C" void UE1AndroidSuspendTogglesForSaveV222(UBOOL bSuspend);
+#endif
 #include "UnExtraKeyBindings.h"
 #include "UnRender.h"
 #include "UnNet.h"
@@ -1962,7 +1965,13 @@ void UGameEngine::Draw( UViewport* Viewport, UBOOL Blit, BYTE* HitData, INT* Hit
 				debugf( NAME_Init, TEXT("UT99 Android menu build label: %s"), BuildLabel );
 				bRuntimeVersionLogged = 1;
 			}
+#if UNREAL_GOLD_226
+			// The classic-menu canvas is already scaled; keep the label size.
+			extern ENGINE_API FLOAT UnrealAndroidCanvasScale();
+			const FLOAT LabelScale = 3.f / UnrealAndroidCanvasScale();
+#else
 			const FLOAT LabelScale = 3.f;
+#endif
 			FLOAT LabelW=0.f, LabelH=0.f;
 			UT99AndroidMeasureScaledText( Canvas->SmallFont, BuildLabel, LabelScale, Canvas->SpaceX, LabelW, LabelH );
 			Canvas->CurX = Max<FLOAT>( 4.f, Canvas->ClipX - LabelW - 12.f );
@@ -2349,7 +2358,14 @@ void UGameEngine::SaveGame( INT Position )
 		GLevel->BrushTracker = NULL;
 	}
 	GLevel->CleanupDestroyed( 1 );
+#if UNREAL_GOLD_226
+    UE1AndroidSuspendTogglesForSaveV222(1);
+    const UBOOL GoldSaved=SavePackage(GLevel->GetOuter(),GLevel,0,Filename,GLog);
+    UE1AndroidSuspendTogglesForSaveV222(0);
+    if( GoldSaved )
+#else
 	if( SavePackage( GLevel->GetOuter(), GLevel, 0, Filename, GLog ) )
+#endif
 	{
 		// Copy the hub stack.
 		INT i;

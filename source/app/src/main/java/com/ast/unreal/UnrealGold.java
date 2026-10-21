@@ -3,6 +3,7 @@ package com.ast.unreal;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -41,6 +42,7 @@ final class UnrealGold {
     private static final String KEY_ROOT = "root";
     private static final String KEY_LANGUAGE = "language";
     private static final String KEY_TOUCH = "touch";
+    private static final String KEY_MENU = "menu";
     private static final String KEY_TOUCH_OPACITY = "touch_opacity";
 
     private UnrealGold() {}
@@ -73,6 +75,29 @@ final class UnrealGold {
         editor.commit();
     }
 
+    /** Installs our small console adapter; the original UPak package stays intact. */
+    static void installConsolePatch(Context context, File system) throws IOException {
+        byte[] patch;
+        try (InputStream in = context.getAssets().open("gold_patches/System/UnrealGoldAndroid.u")) {
+            patch = readBytes(in);
+        }
+        File target = new File(system, "UnrealGoldAndroid.u");
+        if (target.isFile() && target.length() == patch.length) {
+            try (InputStream in = new FileInputStream(target)) {
+                if (Arrays.equals(patch, readBytes(in))) return;
+            }
+        }
+        write(target, patch);
+    }
+
+    private static byte[] readBytes(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int count;
+        while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        return out.toByteArray();
+    }
+
     /** Returns to the v200 data found by UnrealDataPaths. */
     static void forget(Context context) {
         prefs(context).edit().remove(KEY_ROOT).commit();
@@ -86,6 +111,15 @@ final class UnrealGold {
 
     static void setLanguage(Context context, String language) {
         prefs(context).edit().putString(KEY_LANGUAGE, language).commit();
+    }
+
+    /** Classic Unreal menus (default, as with the v200 data) instead of the UMenu windows. */
+    static boolean classicMenu(Context context) {
+        return !"windows".equals(prefs(context).getString(KEY_MENU, "classic"));
+    }
+
+    static void classicMenu(Context context, boolean classic) {
+        prefs(context).edit().putString(KEY_MENU, classic ? "classic" : "windows").commit();
     }
 
     /** On-screen controller: "auto" (without a physical controller), "on" or "off". */

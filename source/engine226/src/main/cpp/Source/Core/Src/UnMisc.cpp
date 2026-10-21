@@ -1565,6 +1565,31 @@ UBOOL appFindPackageFile( const TCHAR* In, const FGuid* Guid, TCHAR* Out )
 	if( appStrlen(In)>appStrlen(DLLEXT) && appStricmp( In + appStrlen(In)-appStrlen(DLLEXT), DLLEXT )==0 )
 		return 0;
 
+#if UNREAL_GOLD_226
+	// Gold menus and cutscenes contain Windows paths such as ..\maps\Vortex2.unr.
+	// Try the Unix spelling first, then resolve the package through Paths so
+	// directory casing (maps/Maps) and configured UPak subfolders also work.
+	if( appStrchr(In,'\\') )
+	{
+		TCHAR Normalized[256];
+		appStrncpy( Normalized, In, ARRAY_COUNT(Normalized) );
+		const TCHAR* BaseName = In;
+		for( const TCHAR* P=In; *P; ++P )
+			if( *P=='\\' || *P=='/' )
+				BaseName = P+1;
+		for( TCHAR* P=Normalized; *P; ++P )
+			if( *P=='\\' )
+				*P='/';
+		if( GFileManager->FileSize(Normalized)>=0 )
+		{
+			appStrcpy( Out, Normalized );
+			return 1;
+		}
+		if( BaseName!=In && *BaseName && appFindPackageFile(BaseName,Guid,Out) )
+			return 1;
+	}
+#endif
+
 	// If using non-default language, search for internationalized version.
 	UBOOL International = (appStricmp(UObject::GetLanguage(),TEXT("int"))!=0);
 

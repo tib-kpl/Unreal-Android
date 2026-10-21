@@ -21,6 +21,7 @@ public final class GoldSettingsActivity extends Activity {
     private static final String[] NAMES = {"English", "Français", "Deutsch", "Español", "Italiano"};
     private static final String[] CODES = {"int", "frt", "det", "est", "itt"};
     private String selectedLanguage;
+    private boolean selectedClassicMenu;
     private boolean french;
 
     private String text(String fr, String en) { return french ? fr : en; }
@@ -57,6 +58,7 @@ public final class GoldSettingsActivity extends Activity {
         super.onCreate(state);
         french = "fr".equalsIgnoreCase(getResources().getConfiguration().locale.getLanguage());
         selectedLanguage = state == null ? UnrealGold.language(this) : state.getString("language", "int");
+        selectedClassicMenu = state == null ? UnrealGold.classicMenu(this) : state.getBoolean("classicMenu", true);
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(24), dp(12), dp(24), dp(16));
@@ -110,8 +112,17 @@ public final class GoldSettingsActivity extends Activity {
         body.addView(language);
         body.addView(label(text("Les voix et textes doivent être présents dans les fichiers du jeu ; sinon l’anglais est utilisé.",
                 "Voices and texts must be present in the game data; otherwise English is used."), 14));
-        body.addView(button(text("Appliquer la langue et relancer le jeu…", "Apply language and restart…"), () ->
-                confirm(text("Quitter la partie et relancer le jeu avec cette langue ?", "Leave the game and restart with this language?"), RESTART)));
+
+        body.addView(label(text("Menu du jeu", "Game menu"), 17));
+        Spinner menu = spinner(new String[]{text("Classique (console, comme la v200)", "Classic (console, as in v200)"),
+                text("Fenêtres (UMenu d’Unreal Gold)", "Windows (Unreal Gold UMenu)")}, selectedClassicMenu ? 0 : 1);
+        menu.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parent, android.view.View view, int position, long id) { selectedClassicMenu = position == 0; }
+            public void onNothingSelected(AdapterView<?> parent) { }
+        });
+        body.addView(menu);
+        body.addView(button(text("Appliquer la langue et le menu, relancer le jeu…", "Apply language and menu, restart…"), () ->
+                confirm(text("Quitter la partie et relancer le jeu avec ces réglages ?", "Leave the game and restart with these settings?"), RESTART)));
 
         body.addView(label(text("Emplacement du jeu", "Game location"), 17));
         TextView path = label(getIntent().getStringExtra(UnrealDataPaths.EXTRA_UNREAL_ROOT), 13);
@@ -145,7 +156,10 @@ public final class GoldSettingsActivity extends Activity {
         new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK).setMessage(message)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(text("Continuer", "Continue"), (dialog, which) -> {
-                    if (result == RESTART) UnrealGold.setLanguage(this, selectedLanguage);
+                    if (result == RESTART) {
+                        UnrealGold.setLanguage(this, selectedLanguage);
+                        UnrealGold.classicMenu(this, selectedClassicMenu);
+                    }
                     setResult(result);
                     finish();
                 }).show();
@@ -154,6 +168,7 @@ public final class GoldSettingsActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle state) {
         state.putString("language", selectedLanguage);
+        state.putBoolean("classicMenu", selectedClassicMenu);
         super.onSaveInstanceState(state);
     }
 

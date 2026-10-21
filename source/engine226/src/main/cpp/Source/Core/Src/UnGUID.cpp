@@ -27,15 +27,18 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <stdint.h>
 #include "UnUnix.h"
 
 /*----------------------------------------------------------------------------
 	Private definitions.
 ----------------------------------------------------------------------------*/
 
-typedef unsigned long   unsigned32;
-typedef unsigned short  unsigned16;
-typedef unsigned char   unsigned8;
+// Fixed sizes: uuid_t must stay 16 bytes like FGuid. unsigned long is 8 bytes
+// on 64-bit Android and overflowed the FGuid that SavePackage passes in.
+typedef uint32_t        unsigned32;
+typedef uint16_t        unsigned16;
+typedef uint8_t         unsigned8;
 typedef unsigned char   byte;
 
 #define CLOCK_SEQ_LAST	0x3FFF
@@ -54,6 +57,8 @@ typedef struct _unsigned64_t {
   unsigned32          lo;
   unsigned32          hi;
 } unsigned64_t;
+
+static_assert( sizeof(uuid_t)==16, "uuid_t must match FGuid" );
 
 // Forward declarations.
 void uuid_create(uuid_t *uuid);

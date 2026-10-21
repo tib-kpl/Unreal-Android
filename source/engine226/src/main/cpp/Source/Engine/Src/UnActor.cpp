@@ -8,6 +8,9 @@
 
 #include "EnginePrivate.h"
 #include "UnNet.h"
+#if UNREAL_GOLD_226
+#include "GoldGameplayToggles.inl"
+#endif
 
 #if defined(PLATFORM_ANDROID)
 void AInventory::execCompatShieldPickupQuery(FFrame& Stack, RESULT_DECL)
@@ -892,8 +895,22 @@ void AActor::PostLoad()
 void AActor::ProcessEvent( UFunction* Function, void* Parms, void* Result )
 {
 	guardSlow(AActor::ProcessEvent);
+#if UNREAL_GOLD_226
+    INT AmmoBeforeV21=0;
+    UProperty* AmmoPropertyV21=NULL;
+    const UBOOL PreserveAmmoV21=UE1AndroidShouldPreserveAmmoUseV21(this,Function,AmmoBeforeV21,AmmoPropertyV21);
+#endif
 	if( Level->bBegunPlay )
 		Super::ProcessEvent( Function, Parms, Result );
+#if UNREAL_GOLD_226
+    if( PreserveAmmoV21 )
+    {
+        INT After=0;
+        UProperty* Property=NULL;
+        if( UE1AndroidReadAmmoAmountV21(this,After,Property) && After<AmmoBeforeV21 )
+            UE1AndroidWriteAmmoAmountV21(this,Property ? Property : AmmoPropertyV21,AmmoBeforeV21);
+    }
+#endif
 	unguardSlow;
 }
 

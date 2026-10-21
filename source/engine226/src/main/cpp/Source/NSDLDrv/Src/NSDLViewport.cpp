@@ -1767,6 +1767,11 @@ static INT UT99RetroTouchDetermineUiState( UNSDLViewport* Viewport, UBOOL bMenu 
 
     if( !Viewport || !Viewport->Actor || !Viewport->Actor->GetLevel() )
         return 0;
+#if UNREAL_GOLD_226
+    // Classic Unreal menus are drawn by the HUD, without UWindow.
+    if( Viewport->Actor->myHUD && Viewport->Actor->myHUD->MainMenu )
+        return 1;
+#endif
 
     // CityIntro is an interactive flyby: a normal screen tap must keep reaching
     // SDL/UT so the player can skip it. Once UWindow opens, bMenu above switches
@@ -1794,8 +1799,51 @@ static INT UT99RetroTouchDetermineUiState( UNSDLViewport* Viewport, UBOOL bMenu 
     return 2;
 }
 
+#if UNREAL_GOLD_226
+// SDL emits a raw joystick copy for every normalized game-controller event.
+static UBOOL UnrealGoldClassicMenuJoyCopy( UNSDLViewport*, SDL_JoystickID Joystick )
+{
+    return SDL_GameControllerFromInstanceID( Joystick ) != NULL;
+}
+#endif
+
+#if UNREAL_GOLD_226
+// UnrealChooseGameMenu reads both campaigns' default StartMap values during
+// PostBeginPlay. Load UPak and fix its inherited Unreal start map before the
+// menu can be spawned; finding the class on the next tick is already too late.
+static void UnrealGoldPrepareClassicCampaigns( UNSDLViewport* Viewport )
+{
+    static UBOOL bPrepared = 0;
+    if( bPrepared || !Viewport || !Viewport->Actor || !Viewport->Actor->myHUD )
+        return;
+    bPrepared = 1;
+    UClass* Game = LoadClass<AGameInfo>( NULL, TEXT("UPak.UPakSinglePlayer"), NULL, LOAD_NoWarn, NULL );
+    if( !Game || !Game->GetSuperClass() )
+        return;
+    UStrProperty* Prop = FindField<UStrProperty>( Game, TEXT("StartMap") );
+    if( !Prop || Game->Defaults.Num() < Prop->Offset + (INT)sizeof(FString) )
+        return;
+    // Keep the patched defaults alive across level travel and garbage collection.
+    Game->AddToRoot();
+    FString* StartMap = (FString*)&Game->Defaults( Prop->Offset );
+    UClass* Super = Game->GetSuperClass();
+    if( Super->Defaults.Num() >= Prop->Offset + (INT)sizeof(FString)
+     && *StartMap == *(FString*)&Super->Defaults( Prop->Offset ) )
+        // Resolve through Core.System Paths, which also handles Android file casing.
+        *StartMap = TEXT("Intro1.unr");
+    debugf( NAME_Init, TEXT("Unreal Gold: classic Return to Na Pali StartMap=%s"), **StartMap );
+}
+#endif
+
+#if UNREAL_GOLD_226
+#include "GoldController.inl"
+#endif
+
 static void UT99V47TickInput( UNSDLViewport* Viewport, UBOOL bMenu )
 {
+#if UNREAL_GOLD_226
+    UnrealGoldPrepareClassicCampaigns( Viewport );
+#endif
     GUT99AndroidMenuVisibleV91 = bMenu ? 1 : 0;
     GUT99RetroTouchUiState = UT99RetroTouchDetermineUiState( Viewport, bMenu );
     static UBOOL V72LoggedActive = 0;
@@ -4588,6 +4636,9 @@ void UNSDLViewport::UpdateInput( UBOOL Reset )
         // monotonically increasing serial to Java so RetroTouch drops its pointer
         // ownership/latches at the exact same boundary.
         ++GUT99RetroTouchInputResetSerial;
+#if UNREAL_GOLD_226
+        GoldPadReset( this );
+#endif
 #endif
 	}
 
@@ -4829,6 +4880,9 @@ UBOOL UNSDLViewport::TickInput()
         UT99V46TickInput( this, bShowWindowsMouse );
 #endif
 #ifdef PLATFORM_ANDROID
+#if UNREAL_GOLD_226
+        GoldPadTick( this );
+#endif
         UT99V47TickInput( this, bShowWindowsMouse );
         AndroidUpdateNativeMouseCaptureV113( bShowWindowsMouse ); // UT99_ANDROID_NATIVE_MOUSE_RELATIVE_CAPTURE_V113
         if( bShowWindowsMouse )
@@ -4937,6 +4991,9 @@ while( SDL_PollEvent( &Ev ) )
             case SDL_CONTROLLERDEVICEREMOVED:
             {
                 // For REMOVED, cdevice.which is the SDL joystick instance id.
+#if UNREAL_GOLD_226
+                GoldPadReset( this );
+#endif
                 UT99AndroidCloseControllerInstance( (SDL_JoystickID)Ev.cdevice.which, "SDL_CONTROLLERDEVICEREMOVED" );
                 // A Retroid mode switch can replace one Android device with
                 // another almost immediately. Scan again after closing so a
@@ -4944,6 +5001,11 @@ while( SDL_PollEvent( &Ev ) )
                 UT99AndroidOpenControllers( "post-remove-rescan" );
                 break;
             }
+#endif
+#if UNREAL_GOLD_226
+            case SDL_APP_WILLENTERBACKGROUND:
+                GoldPadReset( this );
+                break;
 #endif
 			case SDL_QUIT:
 				// signal to client and remember set a flag just in case
@@ -5091,7 +5153,7 @@ while( SDL_PollEvent( &Ev ) )
             case SDL_JOYBUTTONDOWN:
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_JOYBUTTONDOWN */
-        if( bShowWindowsMouse )
+        if( bShowWindowsMouse || UnrealGoldClassicMenuJoyCopy( this, Ev.jbutton.which ) )
         {
             // Controller events already handled the action. Swallow the duplicate JOY copy.
             break;
@@ -5100,7 +5162,7 @@ while( SDL_PollEvent( &Ev ) )
             case SDL_JOYBUTTONUP:
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_JOYBUTTONUP */
-        if( bShowWindowsMouse )
+        if( bShowWindowsMouse || UnrealGoldClassicMenuJoyCopy( this, Ev.jbutton.which ) )
         {
             break;
         }
@@ -5138,6 +5200,8 @@ while( SDL_PollEvent( &Ev ) )
             }
             case SDL_JOYHATMOTION:
             {
+                if( UnrealGoldClassicMenuJoyCopy( this, Ev.jhat.which ) )
+                    break;
                 if( Ev.jhat.value & SDL_HAT_UP )    { CauseInputEvent( IK_Up, IST_Press ); CauseInputEvent( IK_Up, IST_Release ); }
                 if( Ev.jhat.value & SDL_HAT_DOWN )  { CauseInputEvent( IK_Down, IST_Press ); CauseInputEvent( IK_Down, IST_Release ); }
                 if( Ev.jhat.value & SDL_HAT_LEFT )  { CauseInputEvent( IK_Left, IST_Press ); CauseInputEvent( IK_Left, IST_Release ); }
@@ -5148,7 +5212,7 @@ while( SDL_PollEvent( &Ev ) )
             case SDL_JOYAXISMOTION:
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_JOYAXISMOTION */
-        if( bShowWindowsMouse )
+        if( bShowWindowsMouse || UnrealGoldClassicMenuJoyCopy( this, Ev.jaxis.which ) )
         {
             // Retroid/Android accelerometer/joy axes are very noisy here. Swallow silently.
             break;
@@ -5170,6 +5234,13 @@ while( SDL_PollEvent( &Ev ) )
             }
 #endif
 			case SDL_CONTROLLERBUTTONDOWN:
+#if UNREAL_GOLD_226
+        if( !bShowWindowsMouse )
+        {
+            GoldPadButton( this, (INT)Ev.cbutton.button, 1 );
+            break;
+        }
+#endif
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_CONTROLLERBUTTONDOWN */
         if( bShowWindowsMouse )
@@ -5179,6 +5250,13 @@ while( SDL_PollEvent( &Ev ) )
         }
 #endif
             case SDL_CONTROLLERBUTTONUP:
+#if UNREAL_GOLD_226
+        if( !bShowWindowsMouse )
+        {
+            GoldPadButton( this, (INT)Ev.cbutton.button, 0 );
+            break;
+        }
+#endif
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_CONTROLLERBUTTONUP */
         if( bShowWindowsMouse )
@@ -5190,6 +5268,16 @@ while( SDL_PollEvent( &Ev ) )
             {
 #ifdef PLATFORM_ANDROID
                 const UBOOL bAndroidDown = (Ev.type == SDL_CONTROLLERBUTTONDOWN);
+#if UNREAL_GOLD_226
+            // Classic Unreal menus: A selects and B goes back, as with the v200 engine.
+            if( !bShowWindowsMouse && Actor && Actor->myHUD && Actor->myHUD->MainMenu
+             && (Ev.cbutton.button == SDL_CONTROLLER_BUTTON_A || Ev.cbutton.button == SDL_CONTROLLER_BUTTON_B) )
+            {
+                CauseInputEvent( Ev.cbutton.button == SDL_CONTROLLER_BUTTON_A ? IK_Enter : IK_Escape,
+                    bAndroidDown ? IST_Press : IST_Release );
+                break;
+            }
+#endif
             if( !bShowWindowsMouse && UT99AndroidGameplayButtonV41( this, Ev.cbutton.button, bAndroidDown ) )
                 break;
 #endif
@@ -5214,6 +5302,12 @@ while( SDL_PollEvent( &Ev ) )
 				}
 				break;
 			case SDL_CONTROLLERAXISMOTION:
+#if UNREAL_GOLD_226
+        GoldPadSyncMenu( this );
+        if( Ev.caxis.axis < SDL_CONTROLLER_AXIS_MAX )
+            GoldPadAxes[Ev.caxis.axis]=Clamp((FLOAT)Ev.caxis.value/32767.0f,-1.0f,1.0f);
+        if( !bShowWindowsMouse ) break;
+#endif
 #if __ANDROID__
         /* UT99_ANDROID_MENU_INPUT_V43_SDL_CONTROLLERAXISMOTION */
         if( bShowWindowsMouse )
@@ -5532,6 +5626,39 @@ while( SDL_PollEvent( &Ev ) )
             }
 #endif
 #ifdef PLATFORM_ANDROID
+#if UNREAL_GOLD_226
+            case SDL_USEREVENT + 0x226:
+            {
+                GoldPadSyncMenu(this);
+                const INT Key=Ev.user.code;
+                const UBOOL Down=(PTRINT)Ev.user.data1!=0;
+                if( bShowWindowsMouse )
+                {
+                    const INT Button=GoldPadAndroidButton(Key);
+                    if( Button>=0 ) UT99AndroidMenuControllerButtonV43(this,Button,Down);
+                    else UT99V47SetAndroidButton(Key,Down);
+                }
+                else if( Key==104 || Key==105 ) GoldPadDigitalTriggers[Key-104]=Down;
+                else GoldPadButton(this,GoldPadAndroidButton(Key),Down);
+                break;
+            }
+            case SDL_USEREVENT + 0x227:
+            {
+                GoldPadSyncMenu(this);
+                const INT Axis=Ev.user.code;
+                const FLOAT Value=(FLOAT)(PTRINT)Ev.user.data1/32767.0f;
+                if( Axis>=0 && Axis<SDL_CONTROLLER_AXIS_MAX ) GoldPadAxes[Axis]=Value;
+                if( bShowWindowsMouse && Axis>=0 && Axis<6 )
+                {
+                    static const INT AndroidAxes[6]={0,1,11,14,17,18};
+                    UT99V47SetAndroidAxis(AndroidAxes[Axis],Value);
+                }
+                break;
+            }
+            case SDL_USEREVENT + 0x228:
+                GoldPadReset(this);
+                break;
+#endif
             case SDL_USEREVENT + 0x211:
                 if(GUT99AndroidMenuVisibleV91)
                 {
