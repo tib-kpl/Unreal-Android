@@ -66,4 +66,11 @@ add_subdirectory("${ENGINE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/engine")
 
 # The launcher target keeps its upstream name; ship it as libUnreal226.so.
 set_target_properties(UnrealTournament PROPERTIES PREFIX "lib" OUTPUT_NAME "Unreal226")
-target_link_libraries(UnrealTournament log android dl)
+# Resolve C++ type info (char*, int...) and emulated TLS (__emutls_get_address)
+# inside this library: the APK ships the v200 engine's libSDL2.so, whose
+# armeabi-v7a build exports neither, so they must not bind to this build's SDL2.
+execute_process(
+    COMMAND ${CMAKE_CXX_COMPILER} --target=${CMAKE_CXX_COMPILER_TARGET} -print-libgcc-file-name
+    OUTPUT_VARIABLE UNREAL226_COMPILER_BUILTINS
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+target_link_libraries(UnrealTournament c++abi ${UNREAL226_COMPILER_BUILTINS} log android dl)

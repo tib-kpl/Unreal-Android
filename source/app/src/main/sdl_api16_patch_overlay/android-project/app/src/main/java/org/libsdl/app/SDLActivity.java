@@ -392,7 +392,13 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         // UNREAL_ANDROID_API16_SDL_HID_GUARD_V212
         if (android.os.Build.VERSION.SDK_INT >= 18) {
-            mHIDDeviceManager = HIDDeviceManager.acquire(this);
+            try {
+                mHIDDeviceManager = HIDDeviceManager.acquire(this);
+            } catch (UnsatisfiedLinkError e) {
+                // The armeabi-v7a libSDL2.so is built without HIDAPI for API 16.
+                android.util.Log.v(TAG, "SDL HIDAPI natives unavailable; using SDL joystick/controller path");
+                mHIDDeviceManager = null;
+            }
         } else {
             android.util.Log.v(TAG, "API16: SDL HIDAPI disabled; using SDL joystick/controller path");
             mHIDDeviceManager = null;

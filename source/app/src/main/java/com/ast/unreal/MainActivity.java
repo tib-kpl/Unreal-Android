@@ -272,7 +272,10 @@ public class MainActivity extends Activity {
         body.setPadding(48, 36, 48, 36);
 
         TextView title = new TextView(this);
-        title.setText(g("Données Unreal introuvables", t("Unreal-Daten fehlen", "Unreal data not found")));
+        final boolean hasData = UnrealGold.rememberedRoot(this) != null
+                || (selectedRoot != null && UnrealDataPaths.hasRequiredData(selectedRoot));
+        title.setText(hasData ? g("Fichiers du jeu", t("Spieldaten", "Game data"))
+                : g("Données Unreal introuvables", t("Unreal-Daten fehlen", "Unreal data not found")));
         title.setTextSize(24);
         title.setGravity(Gravity.CENTER);
         body.addView(title);
