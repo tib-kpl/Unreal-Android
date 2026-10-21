@@ -397,11 +397,14 @@ final class UnrealDataPaths {
                     "[DefaultPlayer]\nName=Player\nClass=UnrealShare.MaleOne\n\n[Engine.Input]\n");
             ensureConfigFile(systemDir, "Unreal.ini", new String[] { "Default.ini", "Unreal.ini.default" }, "");
             ensureAndroidControllerDirectPatch(systemDir);
+            String controllerFallback = readLatin1(new File(systemDir, "User.ini"));
             for (String name : new String[] { "Unreal.ini", "User.ini" }) {
                 File input = new File(systemDir, name);
                 if (!input.isFile()) continue;
                 String before = readLatin1(input);
                 String after = ControllerObjectiveProfile.migrate(before);
+                after = ControllerInventoryProfile.migrate(after, controllerFallback);
+                if (name.equals("Unreal.ini")) after = Unreal226Config.upsert(after, "Android", "CameraRollMultiplier", Float.toString(UnrealGold.cameraRoll(context)));
                 if (!after.equals(before)) writeLatin1(input, after);
             }
             ensureGameLanguage(context, systemDir); // UNREAL_ANDROID_FRENCH_LANGUAGE_V221

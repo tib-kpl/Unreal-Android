@@ -1860,6 +1860,19 @@ void UGameEngine::Draw( UViewport* Viewport, UBOOL Blit, BYTE* HitData, INT* Hit
 	FRotator     ViewRotation = ViewActor->Rotation;
 	Viewport->Actor->eventPlayerCalcView( ViewActor, ViewLocation, ViewRotation );
 	check(ViewActor);
+#if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+    // Scale only the live first-person camera, not cinematics, death or spectator views.
+    if(ViewActor==Viewport->Actor && !Viewport->Actor->bBehindView
+        && !Viewport->Actor->bInterpolating && Viewport->Actor->Health>0
+        && Viewport->Actor->Physics==PHYS_Walking)
+    {
+        FLOAT Amount=.25f;
+        GConfig->GetFloat(TEXT("Android"),TEXT("CameraRollMultiplier"),Amount);
+        INT Roll=ViewRotation.Roll&65535;
+        if(Roll>32767) Roll-=65536;
+        ViewRotation.Roll=appRound(Roll*Clamp(Amount,0.f,1.f));
+    }
+#endif
 
 	// Precaching message.
 	BYTE SavedAction = ViewActor->Level->LevelAction;

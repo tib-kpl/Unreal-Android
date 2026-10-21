@@ -402,8 +402,16 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeGo
 {
     SDL_Event Event; SDL_memset(&Event,0,sizeof(Event));
     Event.type=SDL_USEREVENT+0x229;
-    Event.user.data1=(void*)(PTRINT)(INT)(Clamp((FLOAT)Scale,0.75f,1.25f)*1000.f);
+    Event.user.data1=(void*)(PTRINT)(INT)(Clamp((FLOAT)Scale,0.5f,1.25f)*1000.f);
     Event.user.data2=(void*)(PTRINT)(INT)(Clamp((FLOAT)Gamma,0.75f,3.f)*1000.f);
+    SDL_PushEvent(&Event);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_Unreal226Activity_nativeCameraRollSettings(JNIEnv*,jclass,jfloat Amount)
+{
+    SDL_Event Event; SDL_memset(&Event,0,sizeof(Event));
+    Event.type=SDL_USEREVENT+0x22a;
+    Event.user.code=(INT)(Clamp((FLOAT)Amount,0.f,1.f)*1000.f);
     SDL_PushEvent(&Event);
 }
 

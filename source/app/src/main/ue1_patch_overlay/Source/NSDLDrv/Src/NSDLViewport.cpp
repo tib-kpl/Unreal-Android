@@ -899,6 +899,14 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ast_unreal_UnrealSDLActivity_nati
 	return GAndroidNativeControllerRuntimeEnabled ? JNI_TRUE : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_UnrealSDLActivity_nativeCameraRollSettings(JNIEnv*,jclass,jfloat Amount)
+{
+    SDL_Event Event; SDL_memset(&Event,0,sizeof(Event));
+    Event.type=SDL_USEREVENT+0x22a;
+    Event.user.code=(INT)(Clamp((FLOAT)Amount,0.f,1.f)*1000.f);
+    SDL_PushEvent(&Event);
+}
+
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ast_unreal_UnrealSDLActivity_nativeAndroidQueueGameplayToggleV22( JNIEnv*, jclass, jint Toggle )
 {
 	// UNREAL_ANDROID_CONTROLLER_DIRECT_TOGGLES_V22
@@ -3411,6 +3419,12 @@ UBOOL UNSDLViewport::TickInput()
 				}
 				break;
 #if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+            case SDL_USEREVENT + 0x22a:
+            {
+                char Value[32]; appSprintf(Value,"%.3f",Ev.user.code/1000.f);
+                GConfigCache.SetString("Android","CameraRollMultiplier",Value);
+                break;
+            }
 			case SDL_USEREVENT + 0x210:
 				{
 					// UNREAL_ANDROID_CHROMEOS_MOUSE_FRAMEPACED_FLOAT_V210

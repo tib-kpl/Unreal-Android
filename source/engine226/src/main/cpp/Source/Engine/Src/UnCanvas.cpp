@@ -173,7 +173,7 @@ static FLOAT UnrealAndroidConfiguredCanvasScale( UViewport* Viewport )
 	// 720p, 1080p and above. Bound the layout so original menus still fit.
 	if( Configured<=0.f ) Configured=Viewport->SizeY/360.f;
 	const FLOAT Limit=Max(1.f,Min(Viewport->SizeY/300.f,Viewport->SizeX/400.f));
-	return Clamp(Configured*Clamp(Multiplier,0.75f,1.25f),1.f,Limit);
+	return Clamp(Configured*Clamp(Multiplier,0.5f,1.25f),1.f,Limit);
 }
 #endif
 
@@ -291,6 +291,12 @@ void UCanvas::DrawIcon
 )
 {
 	guard(UCanvas::DrawIcon);
+#if UNREAL_GOLD_226
+    // Native callers project world effects in physical pixels. Script HUD icons
+    // use DrawTile directly and remain in the scaled logical canvas.
+    const FLOAT S=GUnrealCanvasScale;
+    ScreenX/=S; ScreenY/=S; XSize/=S; YSize/=S;
+#endif
 	DrawTile( Texture, ScreenX, ScreenY, XSize, YSize, 0, 0, Texture->USize, Texture->VSize, SpanBuffer, Z, Color, Fog, PolyFlags );
 	unguard;
 }
@@ -962,6 +968,31 @@ void UCanvas::execDrawText( FFrame& Stack, RESULT_DECL )
 	}
 	INT XL=0, YL=0;
 #if UNREAL_GOLD_226
+    UFont* SavedMenuFont=Font;
+    if (Stack.Object && Stack.Node && Stack.Object->IsA(AMenu::StaticClass())
+        && Stack.Node->GetFName()==FName(TEXT("DrawList")) && (Font==LargeFont || Font==BigFont))
+    {
+        AMenu* Menu=(AMenu*)Stack.Object;
+        const FLOAT Available=Max(1.f,Min(ClipX-8.f,ClipX*.5f+120.f)-CurX);
+        UFont* Candidates[3]={Font,BigFont,MedFont};
+        for(INT Face=0;Face<3;++Face)
+        {
+            INT Widest=0;
+            for(INT Row=1;Row<=Min(Menu->MenuLength,23);++Row)
+            {
+                INT Width=0;
+                const TCHAR* Label=*Menu->MenuList[Row];
+                for(INT Char=0;Label[Char];++Char)
+                {
+                    INT W,H; GetCharSize(Candidates[Face],Label[Char],W,H);
+                    Width+=W+(INT)SpaceX;
+                }
+                Widest=Max(Widest,Width);
+            }
+            Font=Candidates[Face];
+            if(Widest<=Available) break;
+        }
+    }
 	// IntroNullHud places ESCMessage at ClipX/2-66, half the width of the
 	// English "Press ESC to begin": centre it for every language.
 	if( Stack.Node && Stack.Object && Stack.Node->GetFName()==FName(TEXT("PostRender"))
@@ -979,6 +1010,9 @@ void UCanvas::execDrawText( FFrame& Stack, RESULT_DECL )
 #endif
 	if( Style!=STY_None )
 		WrappedPrint( (ERenderStyle)Style, XL, YL, Font, bCenter, *InText );
+#if UNREAL_GOLD_226
+    Font=SavedMenuFont;
+#endif
 	CurX += XL;
 	CurYL = Max(CurYL,(FLOAT)YL);
 	if( CR )

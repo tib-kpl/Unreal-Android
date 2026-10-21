@@ -109,7 +109,7 @@ working unchanged.
   in game, and stays out of the way in the intro and the cutscenes.
 - **Readable Gold interface** – classic menus and the HUD scale with the
   resolution, and French retains the large menu fonts. The Android settings
-  provide interface size and gamma controls, applied when returning to the
+  provide interface size (50–125%) and gamma controls, applied when returning to the
   game. Gamma reveals shadow detail separately from the brightness setting.
 - **French game texts** – missing French menus, translator messages and hints
   are downloaded on startup, including Return to Na Pali. Existing retail
@@ -121,6 +121,10 @@ working unchanged.
   shows the objective/hint in both v200 and Gold; B crouches and Select opens
   the translator. Existing installs receive the R3 shortcut once, preserving
   other personal R3 actions and later remapping.
+- **Camera comfort** – sideways tilt defaults to 25% of the original effect.
+  Android settings offer 0–100%, including complete disable, in both engines.
+  Weapon and inventory cycling actions are exchanged once on physical pads;
+  later remapping is preserved.
 - **Audio, saves and rendering** – Gold's audio settings are migrated to the
   Android audio driver, saving and loading work on 64-bit devices, meshes keep
   their full detail, and the intro flyby is smooth with its start message

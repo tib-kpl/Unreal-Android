@@ -116,12 +116,32 @@ public final class GoldSettingsActivity extends Activity {
         if (!v200) {
             body.addView(label(text("Affichage", "Display"), 17));
             displaySlider(body, text("Taille des menus classiques et du HUD : ", "Classic menu and HUD size: "),
-                    UnrealGold.interfaceSize(this), .75f, .05f, 10, false);
+                    UnrealGold.interfaceSize(this), .5f, .05f, 15, false);
             displaySlider(body, text("Gamma (zones sombres) : ", "Gamma (shadow detail): "),
                     UnrealGold.gamma(this), .75f, .05f, 45, true);
             body.addView(label(text("La taille s’adapte à la résolution. Les deux réglages s’appliquent au retour au jeu.",
                     "Size adapts to the resolution. Both settings apply when you return to the game."), 14));
         }
+
+        body.addView(label(text("Confort de la caméra", "Camera comfort"), 17));
+        TextView rollLabel = label("", 15);
+        body.addView(rollLabel);
+        SeekBar roll = new SeekBar(this);
+        roll.setMax(20);
+        roll.setProgress(Math.round(UnrealGold.cameraRoll(this) * 20));
+        roll.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                rollLabel.setText(text("Inclinaison latérale : ", "Sideways camera tilt: ") + (progress * 5) + " %"
+                        + (progress == 0 ? text(" (désactivée)", " (disabled)") : ""));
+                if (fromUser) UnrealGold.cameraRoll(GoldSettingsActivity.this, progress / 20f);
+            }
+            public void onStartTrackingTouch(SeekBar bar) { }
+            public void onStopTrackingTouch(SeekBar bar) { }
+        });
+        rollLabel.setText(text("Inclinaison latérale : ", "Sideways camera tilt: ") + Math.round(UnrealGold.cameraRoll(this) * 100) + " %");
+        body.addView(roll, new LinearLayout.LayoutParams(-1, dp(48)));
+        body.addView(label(text("0 % désactive l’inclinaison, 100 % conserve l’effet d’origine. Appliqué au retour au jeu.",
+                "0% disables tilt; 100% keeps the original effect. Applies when you return to the game."), 14));
 
         body.addView(label(text("Langue du jeu", "Game language"), 17));
         final String[] codes = v200 ? V200_CODES : CODES;

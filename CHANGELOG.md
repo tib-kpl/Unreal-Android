@@ -3,6 +3,19 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.4
+
+- Fit translated classic list labels within their menu panel and allow
+  interface sizes from 50% to 125%.
+- Restore immersive Android fullscreen after SDL window-style changes and
+  system bar visibility changes in both engines.
+- Exchange weapon and inventory cycling on physical controllers once,
+  including existing personal profiles, without reversing the upgrade on import.
+- Add a live 0–100% sideways camera tilt control in both engines, defaulting
+  to 25%; zero disables the effect during first-person walking.
+- Keep native world coronas and lens flares in physical pixel coordinates
+  instead of applying the enlarged HUD canvas scale to them.
+
 ## 2.4.3
 
 - R3 (right-stick click) shows the objective/hint in both v200 and Gold.

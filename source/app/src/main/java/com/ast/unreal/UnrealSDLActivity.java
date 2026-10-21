@@ -26,6 +26,8 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     private InputManager inputManager;
     private UnrealRetroTouchBridge retroTouchBridgeV215; // UNREAL_ANDROID_RETROTOUCH_V215
     private View settingsGear;
+    private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
+    private static native void nativeCameraRollSettings(float amount);
     private long retroTouchConfigReadMsV215;
     private boolean retroTouchEnabledCacheV215 = true;
 
@@ -237,6 +239,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     @Override
     protected void onResume() {
         super.onResume();
+        nativeCameraRollSettings(UnrealGold.cameraRoll(this));
         resetAndroidNativeControllerState(); // ANDROID_CONTROLLER_NATIVE_RESET_V88
         hideSystemUi();
         scheduleImmersiveRefresh();
@@ -853,7 +856,22 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
         handler.postDelayed(this::hideSystemUi, 750);
     }
 
+    @Override
+    public void onSystemUiVisibilityChange(int visibility) {
+        super.onSystemUiVisibilityChange(visibility);
+        if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0
+                || (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+            View decor = getWindow().getDecorView();
+            decor.removeCallbacks(restoreImmersive);
+            decor.postDelayed(restoreImmersive, 200);
+        }
+    }
+
     private void hideSystemUi() {
+        // SDL's window-style command can set FORCE_NOT_FULLSCREEN after onCreate.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        mFullscreenModeActive = true;
         View decor = getWindow().getDecorView();
         decor.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN |

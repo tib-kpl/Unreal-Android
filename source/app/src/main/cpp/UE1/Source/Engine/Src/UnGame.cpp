@@ -870,6 +870,20 @@ void UGameEngine::Draw( UViewport* Viewport, BYTE* HitData, INT* HitSize )
 	FRotator     ViewRotation = ViewActor->Rotation;
 	Viewport->Actor->eventPlayerCalcView( ViewActor, ViewLocation, ViewRotation );
 	check(ViewActor);
+#if defined(PLATFORM_ANDROID) || defined(UNREAL_ANDROID) || defined(__ANDROID__)
+    // Scale only the live first-person camera, not cinematics, death or spectator views.
+    if(ViewActor==Viewport->Actor && !Viewport->Actor->bBehindView
+        && !Viewport->Actor->bInterpolating && Viewport->Actor->Health>0
+        && Viewport->Actor->Physics==PHYS_Walking)
+    {
+        FLOAT Amount=.25f;
+        char Value[32];
+        if(GConfigCache.GetString("Android","CameraRollMultiplier",Value,sizeof(Value))) Amount=appAtof(Value);
+        INT Roll=ViewRotation.Roll&65535;
+        if(Roll>32767) Roll-=65536;
+        ViewRotation.Roll=appRound(Roll*Clamp(Amount,0.f,1.f));
+    }
+#endif
 
 	// See if viewer is inside world.
 	DWORD LockFlags=0;

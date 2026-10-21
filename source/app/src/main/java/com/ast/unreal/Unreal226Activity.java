@@ -29,6 +29,8 @@ public class Unreal226Activity extends SDLActivity {
 
     private File root;
     private View settingsGear;
+    private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
+    private static native void nativeCameraRollSettings(float amount);
     private GoldTouchBridge touchBridge;
     private GoldControllerInput controllerInput;
 
@@ -101,6 +103,7 @@ public class Unreal226Activity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        nativeCameraRollSettings(UnrealGold.cameraRoll(this));
         if (controllerInput != null) nativeGoldDisplaySettings(UnrealGold.interfaceSize(this), UnrealGold.gamma(this));
         if (touchBridge != null) touchBridge.start();
         scheduleImmersiveRefresh();
@@ -225,7 +228,22 @@ public class Unreal226Activity extends SDLActivity {
         handler.postDelayed(this::hideSystemUi, 750);
     }
 
+    @Override
+    public void onSystemUiVisibilityChange(int visibility) {
+        super.onSystemUiVisibilityChange(visibility);
+        if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0
+                || (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+            View decor = getWindow().getDecorView();
+            decor.removeCallbacks(restoreImmersive);
+            decor.postDelayed(restoreImmersive, 200);
+        }
+    }
+
     private void hideSystemUi() {
+        // SDL's window-style command can set FORCE_NOT_FULLSCREEN after onCreate.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        mFullscreenModeActive = true;
         View decor = getWindow().getDecorView();
         decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN

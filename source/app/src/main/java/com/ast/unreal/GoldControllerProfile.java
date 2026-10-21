@@ -32,6 +32,16 @@ final class GoldControllerProfile {
         Map<String, String> original = section(pc, "Engine.Input");
         Map<String, String> personal = section(v200, "Engine.Input");
         if (personal.isEmpty()) return gold;
+        boolean goldSwapped = "1".equals(section(gold, "Android").get("inventorycontrollerprofile"));
+        boolean v200Swapped = "1".equals(section(v200, "Android").get("inventorycontrollerprofile"));
+        if (goldSwapped) {
+            for (Map.Entry<String, String> entry : defaults.entrySet())
+                if (entry.getKey().startsWith("joy") || entry.getKey().startsWith("unknown"))
+                    entry.setValue(ControllerInventoryProfile.swapAction(entry.getValue()));
+            for (Map.Entry<String, String> entry : original.entrySet())
+                if (entry.getKey().startsWith("joy") || entry.getKey().startsWith("unknown"))
+                    entry.setValue(ControllerInventoryProfile.swapAction(entry.getValue()));
+        }
         for (Map.Entry<String, String> entry : personal.entrySet()) {
             String key = entry.getKey(), command = entry.getValue();
             // v200 uses WASD/mouse when a physical stick/trigger binding is
@@ -50,6 +60,7 @@ final class GoldControllerProfile {
             boolean controller = key.startsWith("joy") || key.startsWith("unknown");
             boolean requestedAction = lower.contains("duck") || lower.contains("activatehint") || lower.contains("activatetranslator");
             if (key.startsWith("aliases[") || (!controller && !requestedAction)) continue;
+            if (controller && goldSwapped != v200Swapped) command = ControllerInventoryProfile.swapAction(command);
             String before = current.get(key);
             if (before == null || before.equalsIgnoreCase(binding(defaults, key))
                     || before.equalsIgnoreCase(binding(original, key)))

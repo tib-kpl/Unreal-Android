@@ -46,6 +46,7 @@ final class Unreal226Config {
                 current = GoldControllerProfile.importPersonal(current, personal, profile, baseline);
             }
             current = ControllerObjectiveProfile.migrate(current);
+            current = ControllerInventoryProfile.migrate(current, profile);
             write(user, current);
             String text;
             if (ini.isFile()) {
@@ -70,6 +71,7 @@ final class Unreal226Config {
             text = upsert(text, "Engine.Engine", "Console", classicMenu ? "UnrealGoldAndroid.ClassicConsole" : "UPak.UPakConsole");
             // Read by the 226 engine: logical 2D scale of the classic menus and the HUD.
             text = displaySettings(text, UnrealGold.interfaceSize(context), UnrealGold.gamma(context));
+            text = upsert(text, "Android", "CameraRollMultiplier", Float.toString(UnrealGold.cameraRoll(context)));
             text = upsert(text, "Android", "ClassicMenu", classicMenu ? "True" : "False");
             if (!ini.isFile()) {
                 text = upsert(text, "NSDLDrv.NSDLClient", "StartupFullscreen", "True");
@@ -94,7 +96,7 @@ final class Unreal226Config {
             if (old == 0f || old == 1f || old == 2f) text = upsert(text, "Android", "UIScale", "0");
             text = upsert(text, "Android", "DisplayProfile", "2");
         }
-        text = upsert(text, "Android", "UIScaleMultiplier", Float.toString(Math.max(.75f, Math.min(1.25f, size))));
+        text = upsert(text, "Android", "UIScaleMultiplier", Float.toString(Math.max(.5f, Math.min(1.25f, size))));
         return upsert(text, "Android", "Gamma", Float.toString(Math.max(.75f, Math.min(3f, gamma))));
     }
 

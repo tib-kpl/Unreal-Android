@@ -61,21 +61,38 @@ The following defaults apply when no personal v200 profile is available:
 | Right stick | Look, with the v200 linear response and smoothing |
 | A / B | Jump / crouch; select / back in menus |
 | X / Y | Grab / walk; N / Y in menu prompts |
-| L1 / R1 | Previous / next weapon |
+| L1 / R1 | Previous / next inventory item |
 | L2 / R2 | Alternate / primary fire |
 | Select | Translator; back in menus |
 | Start / Mode | Open / close menu |
 | R3 | Objective / hint (`ActivateHint`) |
 | L3 | Its configured action, crouch by default |
 | L3 + A / L3 + Y | Toggle infinite ammo / health, as in v200 |
-| D-pad left / right | Previous / next weapon |
-| D-pad up / down | Previous / next inventory item |
+| D-pad left / right | Previous / next inventory item |
+| D-pad up / down | Previous / next weapon |
 
 R3 (right-stick click) opens the objective/hint in both v200 and Gold. A
 one-time upgrade fills an unassigned R3 or replaces the previous shipped
 CenterView default, including existing Gold profiles. Other personal R3
 actions and subsequent remapping are preserved. B remains crouch and Select
 remains the translator.
+
+Weapon and inventory cycling actions are exchanged once using each install's
+current physical bindings. For example, a personal v200 profile with inventory
+on L1/R1 now cycles weapons there, and its previous weapon buttons cycle items.
+The table above describes the shipped fallback; importing a personal profile
+before or after its upgrade does not exchange the actions a second time.
+
+## Camera comfort and full screen
+
+Android settings expose sideways camera tilt from 0% (disabled) to 100%
+(original effect), defaulting to 25% in both engines. Changes apply on return
+to gameplay. Only a living first-person walking view is adjusted; flybys,
+interpolated cinematics, third-person and spectator views retain their roll.
+
+Both game activities clear SDL's late `FLAG_FORCE_NOT_FULLSCREEN` window flag
+and restore immersive mode when the system bars reappear, as well as on focus
+and resume. Android's transient swipe gestures remain available.
 
 The default stick deadzones are 0.08 left and 0.10 right; trigger deadzone is
 0.12. Movement and triggers use the v200 press/release hysteresis. Right-stick
@@ -201,6 +218,12 @@ Gold's gamma setting ranges from 0.75 to 3.0, default 1.6. It applies a power
 curve to RGB after brightness, preserving black and alpha coverage. Gamma 1.0
 retains the previous brightness response. Returning from Android settings
 updates it without restarting or touching gameplay progress.
+
+Classic list menus measure their translated labels and select a font that
+fits the menu panel, keeping a consistent face across the rows. Size adjustment
+now covers 50–125%. Native projected coronas and lens flares keep physical pixel
+coordinates, while scripted HUD icons use the logical canvas; increasing HUD
+size no longer moves or enlarges world light effects.
 
 ## French map texts and saves
 

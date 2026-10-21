@@ -3055,13 +3055,13 @@ void URender::DrawFrame( FSceneNode* Frame )
 							if( Light->Region.Zone->LensFlare[j] == NULL )
 								break;
 							FLOAT A  = -Light->Region.Zone->LensFlareOffset[j];
-							FLOAT XX = X + (Viewport->Canvas->X/2-X)*A;
-							FLOAT YY = Y + (Viewport->Canvas->Y/2-Y)*A;
+							FLOAT XX = X + (Frame->FX2-X)*A;
+							FLOAT YY = Y + (Frame->FY2-Y)*A;
 							if( j == 0 
 								&& ( XX < AdjustClipX 
 									|| YY < AdjustClipY 
-									|| XX > Viewport->Canvas->ClipX - AdjustClipX 
-									|| YY > Viewport->Canvas->ClipY - AdjustClipY ) )
+									|| XX > Frame->FX - AdjustClipX
+									|| YY > Frame->FY - AdjustClipY ) )
 							{
 								// abort render if primary light source isn't "inside the camera lens"
 								break;

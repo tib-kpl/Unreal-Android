@@ -141,11 +141,19 @@ final class UnrealGold {
     }
 
     static float interfaceSize(Context context) {
-        return Math.max(.75f, Math.min(1.25f, prefs(context).getFloat("interface_size", 1f)));
+        return Math.max(.5f, Math.min(1.25f, prefs(context).getFloat("interface_size", 1f)));
     }
 
     static void interfaceSize(Context context, float value) {
         prefs(context).edit().putFloat("interface_size", value).commit();
+    }
+
+    static float cameraRoll(Context context) {
+        return Math.max(0f, Math.min(1f, prefs(context).getFloat("camera_roll", .25f)));
+    }
+
+    static void cameraRoll(Context context, float value) {
+        prefs(context).edit().putFloat("camera_roll", value).commit();
     }
 
     static float gamma(Context context) {

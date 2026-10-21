@@ -71,6 +71,28 @@ public class GoldConfigTest {
         check("ActivateHint".equals(value(ControllerObjectiveProfile.migrate(oldGold), "Joy9")), "Existing Gold profile did not get objective");
         String personalBlank = GoldControllerProfile.importPersonal(migrated, "[Engine.Input]\nJoy9=\n", profile, stock);
         check("ActivateHint".equals(value(ControllerObjectiveProfile.migrate(personalBlank), "Joy9")), "Blank v200 import disabled objective");
+        String cycling = "[Engine.Input]\nJoy10=InventoryPrevious\nJoy11=InventoryNext\nJoyPovLeft=PrevWeapon\nJoyPovRight=NextWeapon\nJoy1=Jump\nJoy2=Duck\nJoy9=ActivateHint\nF5=NextWeapon\nJoy3=GetWeapon UnrealShare.ASMD\n";
+        String swapped = ControllerInventoryProfile.migrate(cycling, profile);
+        check("PrevWeapon".equals(value(swapped,"Joy10")), "Personal shoulder previous action not swapped");
+        check("NextWeapon".equals(value(swapped,"Joy11")), "Personal shoulder next action not swapped");
+        check("InventoryPrevious".equals(value(swapped,"JoyPovLeft")), "D-pad previous action not swapped");
+        check("InventoryNext".equals(value(swapped,"JoyPovRight")), "D-pad next action not swapped");
+        check("Jump".equals(value(swapped,"Joy1")) && "Duck".equals(value(swapped,"Joy2")) && "ActivateHint".equals(value(swapped,"Joy9")), "Unrelated actions changed");
+        check("NextWeapon".equals(value(swapped,"F5")), "Keyboard cycling was changed");
+        check("GetWeapon UnrealShare.ASMD".equals(value(swapped,"Joy3")), "Specific weapon selection was changed");
+        check(swapped.equals(ControllerInventoryProfile.migrate(swapped,profile)), "Weapon/item swap repeats");
+        check("InventoryPrevious | OnRelease NextWeapon".equals(ControllerInventoryProfile.swapAction("PrevWeapon | OnRelease InventoryNext")), "Compound action swap failed");
+        for (boolean goldNew : new boolean[]{false,true}) {
+            for (boolean v200New : new boolean[]{false,true}) {
+                String source = v200New ? swapped : cycling;
+                String target = goldNew ? ControllerInventoryProfile.migrate(migrated,profile) : migrated;
+                target = GoldControllerProfile.importPersonal(target,source,profile,stock);
+                target = ControllerInventoryProfile.migrate(target,profile);
+                check("PrevWeapon".equals(value(target,"Joy10")), "Import double-swapped shoulder: " + goldNew + "/" + v200New);
+                check("InventoryNext".equals(value(target,"JoyPovRight")), "Import double-swapped D-pad");
+            }
+        }
+        check("0.5".equals(value(Unreal226Config.displaySettings("",.5f,1.6f),"UIScaleMultiplier")), "Smaller size is clamped away");
         String paths = "[Core.System]\r\nPaths=..\\Maps\\*.unr\r\nSavePath=..\\Save\r\nName=Keep\\This\r\n";
         paths = Unreal226Config.fixPathSeparators(paths);
         check(paths.contains("Paths=../Maps/*.unr") && paths.contains("SavePath=../Save"), "Windows paths were not normalized");
@@ -93,6 +115,6 @@ public class GoldConfigTest {
         String muted=pcAudio+"[Audio.GenericAudioSubsystem]\nChannels=16\nMusicVolume=0\nSoundVolume=0\n";
         check(GoldAudioProfile.migrate(muted).contains("MusicVolume=0"), "Intentional mute overwritten");
         check(GoldAudioProfile.migrate(muted).contains("SoundVolume=0"), "Intentional effects mute overwritten");
-        System.out.println("PASS: " + verified + " defaults, personal v200 bindings, Gold customization preservation, shared R3 objective upgrade, display/gamma, paths and audio migration");
+        System.out.println("PASS: " + verified + " defaults, personal v200 bindings, Gold customization preservation, shared R3 objective upgrade, weapon/item swap and imports, display/gamma, paths and audio migration");
     }
 }
