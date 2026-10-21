@@ -11,11 +11,13 @@ the original Unreal v200 engine. The launcher selects the engine from the game d
 > - La traduction communautaire d'[OldUnreal](https://github.com/OldUnreal/Unreal-Localization) est téléchargée par l'app sur l'appareil ; elle n'est pas incluse dans ce dépôt.
 > - Les lettres accentuées utilisent les glyphes des polices d'origine (ordre CP850) ; les grandes polices, sans accents, affichent la lettre simple.
 > - Les liens de téléchargement plus bas mènent aux versions officielles, sans ces changements.
+> - Prise en charge d'**Unreal Gold 226** (Unreal + Return to Na Pali) avec un second moteur, téléchargement des fichiers depuis OldUnreal et réglages Android : voir [Unreal Gold 226](#-unreal-gold-226-this-fork). Les versions de ce fork sont publiées dans ses [releases](https://github.com/tib-kpl/Unreal-Android/releases).
 >
 > **Fork for the French translation** of [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android).
 > French menus, HUD, messages and map texts on Unreal v1.200, with a language choice at first start (then long-press the icon > "Game language").
 > The app downloads [OldUnreal](https://github.com/OldUnreal/Unreal-Localization)'s community translation on the device; it is not part of this repository.
 > The download links below lead to the upstream builds, without these changes.
+> This fork also runs **Unreal Gold 226** (Unreal + Return to Na Pali) with a second engine, can download the Gold files from OldUnreal, and adds Android settings: see [Unreal Gold 226](#-unreal-gold-226-this-fork). Its builds are published in this fork's [releases](https://github.com/tib-kpl/Unreal-Android/releases).
 
 <p align="left">
   <a href="README.md">README</a>
@@ -74,6 +76,40 @@ the original Unreal v200 engine. The launcher selects the engine from the game d
 > [!NOTE]
 > If you are experiencing problems with your player moving or turning slowly, please go to OPTIONS and Customize Controls.
 
+## ◈ Unreal Gold 226 (this fork)
+
+The app runs two native engines side by side: the original Unreal v200 engine,
+and a second engine based on the Android port of the Unreal Tournament v400
+engine, adapted for Unreal Gold 226. The launcher reads the version of the game
+data and starts the matching engine, so existing v200 installations keep
+working unchanged.
+
+- **Unreal and Return to Na Pali** – both campaigns of Unreal Gold start from
+  the menu; Return to Na Pali's native functions (path finding) were rewritten
+  for Android.
+- **Download from OldUnreal** – the launcher can download the Unreal Gold disc
+  hosted by OldUnreal, check it, and install only the game data. You choose the
+  game language (English, French, German, Spanish, Italian) and the location:
+  internal storage, SD card, or any folder (Android "All files access" is then
+  requested). An existing Unreal Gold folder can also be used in place.
+- **Android settings gear** – in game, the gear at the top right opens the
+  on-screen controller settings (automatic/always/hidden, opacity, layout
+  editing and reset), the game language, the game menu, and the game data
+  manager.
+- **Menus** – the classic Unreal menu, enlarged on HD screens as with v200, is
+  the default. Unreal Gold's windowed UMenu remains available in the settings.
+- **Controllers and touch** – physical controllers use the v200 bindings and
+  stick response; the RetroTouch on-screen controller is available in menus and
+  in game, and stays out of the way in the intro and the cutscenes.
+- **Audio, saves and rendering** – Gold's audio settings are migrated to the
+  Android audio driver, saving and loading work on 64-bit devices, meshes keep
+  their full detail, and the intro flyby is smooth with its start message
+  centred in every language.
+- **32 and 64 bit** – both engines are built for armeabi-v7a and arm64-v8a.
+
+Details and remaining limitations: [docs/UNREAL_GOLD.md](docs/UNREAL_GOLD.md).
+Changes by version: [CHANGELOG.md](CHANGELOG.md).
+
 ## ▣ Requirements
 
 - Android 8.0 or newer for the regular Android build.
@@ -81,13 +117,17 @@ the original Unreal v200 engine. The launcher selects the engine from the game d
 - OpenGL ES 2.0 capable GPU.
 - A compatible device.
 - Android-compatible game controller recommended.
-- Unreal [v200 retail game data](https://archive.org/search?tab=all&query=unreal+v1.200).
+- Unreal [v200 retail game data](https://archive.org/search?tab=all&query=unreal+v1.200), or Unreal Gold 226 game data (this fork can download it from OldUnreal).
 
 > [!IMPORTANT]
 > ## Installation procedere
 > 1. Copy the required Unreal game .zip file to your microSD card or extract it to a folder like "Downloads".  
 > 2. At first start, the game asks for this .zip file or a folder where it is extracted.  
 > 3. Installation takes a while, when finished the game starts.
+>
+> With this fork, the first screen also offers **Download and install Unreal Gold (OldUnreal)**:
+> choose the language and the location, then the game starts once the download
+> (about 680 MB) and the installation are finished.
 
 Required folders:
 

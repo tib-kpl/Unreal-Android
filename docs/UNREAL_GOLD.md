@@ -114,6 +114,16 @@ vertex count, even at close range. The dispersion pistol rendered with only
 value, retaining normal distance-based detail. This fixes the shared rendering
 path for weapons, player previews, creatures and cinematic objects.
 
+## Intro flyby
+
+The v400 pawn rotation pulled the camera roll towards zero, then banked it on
+the per-frame acceleration, while the intro camera followed its interpolation
+path. Both fought the roll set by the path every frame, so the flyby shook in
+places. Interpolating pawns now keep the path roll, as Unreal does. The first
+intro frame, drawn from the PlayerStart before the flyby attaches, is not
+shown. `IntroNullHud` places its start message for the width of the English
+text; the engine centres it for every language.
+
 ## Building
 
 The Gradle build packages both engines and both Android ABIs. Run from `source`:
