@@ -976,7 +976,7 @@ android {
 
 dependencies {
     implementation(project(":engine226")) // Unreal Gold 226 engine (libUnreal226.so)
-    implementation(files("libs/retrotouch.aar")) // UNREAL_ANDROID_RETROTOUCH_V215 UNREAL_ANDROID_RETROTOUCH_BETA3_V221
+    implementation(files("libs/retrotouch.aar")) // RetroTouch 1.0.0-beta.9 UNREAL_ANDROID_RETROTOUCH_V215 UNREAL_ANDROID_RETROTOUCH_BETA3_V221
 }
 
 // Keep Android Studio's green Play/Run path unambiguous.

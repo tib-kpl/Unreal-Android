@@ -6,8 +6,8 @@ import android.os.Looper;
 import android.view.KeyEvent;
 
 import com.ast.retrotouch.RetroTouchAdapter;
+import com.ast.retrotouch.RetroTouchButtonShape;
 import com.ast.retrotouch.RetroTouchControl;
-import com.ast.retrotouch.RetroTouchControllers;
 import com.ast.retrotouch.RetroTouchLayout;
 import com.ast.retrotouch.RetroTouchMode;
 import com.ast.retrotouch.RetroTouchNavigation;
@@ -86,6 +86,7 @@ final class UnrealRetroTouchBridge {
                 .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
 
         registerUnrealActions();
+        assignButtonShapes();
         view.setGameplayLayout(buildGameplayLayout());
         view.setNavigationLayout(buildNavigationLayout());
         view.setLookWhileHoldingAction("fire", true);
@@ -200,6 +201,19 @@ final class UnrealRetroTouchBridge {
         view.registerAction("menu_back", "Back");
     }
 
+    // UNREAL_ANDROID_RETROTOUCH_BUTTON_SHAPES_V231
+    // RetroTouch beta.9 picks AUTO shapes from the label (L/R/L1/R2/LT/RT -> shoulder,
+    // Start/Select/Menu -> rectangle). Unreal's labels are action names ("Fire", ...),
+    // so assign the shapes by action, matching the gamepad layout: Fire = R2,
+    // Alt Fire = L2, Next Weapon = R1, Menu = Start. Keyed by action, so buttons added
+    // in the editor with these actions get the same shape.
+    private void assignButtonShapes() {
+        view.setButtonShape("fire", RetroTouchButtonShape.SHOULDER);
+        view.setButtonShape("alt_fire", RetroTouchButtonShape.SHOULDER);
+        view.setButtonShape("next_weapon", RetroTouchButtonShape.SHOULDER);
+        view.setButtonShape("menu", RetroTouchButtonShape.RECTANGLE);
+    }
+
     private RetroTouchLayout buildGameplayLayout() {
         List<RetroTouchControl> controls = new ArrayList<RetroTouchControl>();
 
@@ -248,7 +262,7 @@ final class UnrealRetroTouchBridge {
         // The gear can force or hide touch controls. Automatic mode shows them
         // only on a touchscreen without a physical controller. Report only changes;
         // UE1 applies the config/menu value on its own TickInput thread.
-        final boolean controllerConnected = RetroTouchControllers.isControllerConnected();
+        final boolean controllerConnected = UnrealControllerDetector.isControllerConnected();
         final boolean touchMode = touchscreenAvailable && !"off".equals(touchPreference)
                 && ("on".equals(touchPreference) || !controllerConnected);
         if (reportedTouchModeV218 == null || reportedTouchModeV218.booleanValue() != touchMode) {
@@ -301,7 +315,7 @@ final class UnrealRetroTouchBridge {
      */
     boolean handleIntroTouchV217(android.view.MotionEvent event) {
         if (event == null || hostPaused || view.isEditing() || !touchscreenAvailable) return false;
-        if (RetroTouchControllers.isControllerConnected()) return false;
+        if (UnrealControllerDetector.isControllerConnected()) return false;
         if (activity.getRetroTouchUiModeV215() != UnrealSDLActivity.RETROTOUCH_UI_INTRO_TAP_V217) {
             introTouchGestureCapturedV217 = false;
             return false;
