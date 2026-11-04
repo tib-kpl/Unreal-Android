@@ -27,6 +27,9 @@ import java.util.UUID;
  * disc's Windows programs are never copied or run.
  */
 final class UnrealGold {
+    static final String DEFAULT_TOUCH = "auto";
+    static final int DEFAULT_TOUCH_OPACITY = 70, DEFAULT_AIM_ASSIST = 2;
+    static final float DEFAULT_INTERFACE_SIZE = 1f, DEFAULT_CAMERA_ROLL = .25f, DEFAULT_GAMMA = 1.6f;
     interface Progress { void update(String phase, int percent); }
 
     static final List<String> LANGUAGES = Arrays.asList("int", "frt", "det", "est", "itt");
@@ -112,6 +115,10 @@ final class UnrealGold {
     static String language(Context context) {
         String value = prefs(context).getString(KEY_LANGUAGE, null);
         if (value != null && LANGUAGES.contains(value)) return value;
+        return defaultLanguage();
+    }
+
+    static String defaultLanguage() {
         return "fr".equals(Locale.getDefault().getLanguage()) ? "frt" : "int";
     }
 
@@ -130,7 +137,7 @@ final class UnrealGold {
 
     /** On-screen controller: "auto" (without a physical controller), "on" or "off". */
     static String touch(Context context) {
-        return prefs(context).getString(KEY_TOUCH, "auto");
+        return prefs(context).getString(KEY_TOUCH, DEFAULT_TOUCH);
     }
 
     static void touch(Context context, String value) {
@@ -139,7 +146,7 @@ final class UnrealGold {
 
     /** Whole on-screen controller opacity in percent (20..100). */
     static int touchOpacity(Context context) {
-        return Math.max(20, Math.min(100, prefs(context).getInt(KEY_TOUCH_OPACITY, 70)));
+        return Math.max(20, Math.min(100, prefs(context).getInt(KEY_TOUCH_OPACITY, DEFAULT_TOUCH_OPACITY)));
     }
 
     static void touchOpacity(Context context, int percent) {
@@ -147,7 +154,7 @@ final class UnrealGold {
     }
 
     static float interfaceSize(Context context) {
-        return Math.max(.5f, Math.min(1.25f, prefs(context).getFloat("interface_size", 1f)));
+        return Math.max(.5f, Math.min(1.25f, prefs(context).getFloat("interface_size", DEFAULT_INTERFACE_SIZE)));
     }
 
     static void interfaceSize(Context context, float value) {
@@ -156,7 +163,7 @@ final class UnrealGold {
 
     /** 0 off, 1 light, 2 medium, 3 strong. Shared by both engines. */
     static int aimAssist(Context context) {
-        return Math.max(0, Math.min(3, prefs(context).getInt("aim_assist", 2)));
+        return Math.max(0, Math.min(3, prefs(context).getInt("aim_assist", DEFAULT_AIM_ASSIST)));
     }
 
     static void aimAssist(Context context, int level) {
@@ -164,7 +171,7 @@ final class UnrealGold {
     }
 
     static float cameraRoll(Context context) {
-        return Math.max(0f, Math.min(1f, prefs(context).getFloat("camera_roll", .25f)));
+        return Math.max(0f, Math.min(1f, prefs(context).getFloat("camera_roll", DEFAULT_CAMERA_ROLL)));
     }
 
     static void cameraRoll(Context context, float value) {
@@ -172,11 +179,20 @@ final class UnrealGold {
     }
 
     static float gamma(Context context) {
-        return Math.max(.75f, Math.min(3f, prefs(context).getFloat("gamma", 1.6f)));
+        return Math.max(.75f, Math.min(3f, prefs(context).getFloat("gamma", DEFAULT_GAMMA)));
     }
 
     static void gamma(Context context, float value) {
         prefs(context).edit().putFloat("gamma", value).commit();
+    }
+
+    /** Reset only the exposed Android options; never clear the remembered data location. */
+    static void resetAndroidSettings(Context context, boolean gold) {
+        SharedPreferences.Editor editor = prefs(context).edit().remove(KEY_TOUCH).remove(KEY_TOUCH_OPACITY)
+                .remove("aim_assist").remove("camera_roll");
+        if (gold) editor.remove(KEY_LANGUAGE).remove(KEY_MENU).remove("interface_size").remove("gamma");
+        editor.commit();
+        if (!gold) UnrealDataPaths.setGameLanguagePreference(context, UnrealDataPaths.LANGUAGE_AUTO);
     }
 
     private static SharedPreferences prefs(Context context) {

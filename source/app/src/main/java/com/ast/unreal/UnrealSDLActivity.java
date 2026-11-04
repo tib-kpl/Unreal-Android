@@ -26,6 +26,9 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     private InputManager inputManager;
     private UnrealRetroTouchBridge retroTouchBridgeV215; // UNREAL_ANDROID_RETROTOUCH_V215
     private View settingsGear;
+    private GameSettingsMenu settingsMenu;
+    private final GameMenuShortcut settingsShortcut = new GameMenuShortcut(
+            this::openAndroidSettings, this::dispatchKeyEvent);
     private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
     private static native void nativeAimAssistSettings(int level);
     private static native void nativeCameraRollSettings(float amount);
@@ -193,16 +196,35 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
         scheduleImmersiveRefresh();
         installRetroTouchV215(); // UNREAL_ANDROID_RETROTOUCH_V215
         File root = selectedRootFromIntentOrScan();
-        if (root != null) settingsGear = AndroidSettingsGear.install(this, root, true);
+        if (root != null) settingsGear = AndroidSettingsGear.install(this, this::openAndroidSettings);
     }
 
-    @Override
-    protected void onActivityResult(int request, int result, android.content.Intent data) {
-        super.onActivityResult(request, result, data);
-        if (request != GoldSettingsActivity.OPEN || retroTouchBridgeV215 == null) return;
-        if (result == GoldSettingsActivity.RESET_TOUCH) retroTouchBridgeV215.resetLayout();
-        if (result == GoldSettingsActivity.EDIT_TOUCH && settingsGear != null) {
-            // Wait for the bridge to restore its mode after the Activity resumes.
+    private void openAndroidSettings() {
+        if (settingsMenu != null && settingsMenu.isShowing()) return;
+        File root = selectedRootFromIntentOrScan();
+        if (root == null) return;
+        if (retroTouchBridgeV215 != null) retroTouchBridgeV215.onHostPause();
+        resetAndroidNativeControllerState();
+        settingsMenu = GoldSettingsPanel.open(this, root, true, result -> {
+            settingsMenu = null;
+            nativeCameraRollSettings(UnrealGold.cameraRoll(this));
+            nativeAimAssistSettings(UnrealGold.aimAssist(this));
+            if (retroTouchBridgeV215 != null) retroTouchBridgeV215.onHostResume();
+            scheduleImmersiveRefresh();
+            if (result == GoldSettingsPanel.RESTART || result == GoldSettingsPanel.DATA) {
+                android.content.Intent restart = new android.content.Intent(this, UnrealRestartActivity.class);
+                restart.putExtra("game_pid", android.os.Process.myPid());
+                restart.putExtra("manage_data", result == GoldSettingsPanel.DATA);
+                startActivity(restart);
+            } else onSettingsResult(result);
+        });
+    }
+
+    private void onSettingsResult(int result) {
+        if (retroTouchBridgeV215 == null) return;
+        if (result == GoldSettingsPanel.RESET_TOUCH) retroTouchBridgeV215.resetLayout();
+        if (result == GoldSettingsPanel.EDIT_TOUCH && settingsGear != null) {
+            // Wait for the bridge to restore its mode after the overlay closes.
             settingsGear.postDelayed(() -> {
                 if (!retroTouchBridgeV215.startLayoutEditing()) {
                     boolean french = "fr".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage());
@@ -215,6 +237,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     protected void onDestroy() {
+        if (settingsMenu != null) { settingsMenu.setOnDismissListener(null); settingsMenu.dismiss(); }
         GameTextInput.close(this);
         final boolean cleanProcessExit = isFinishing() && !isChangingConfigurations();
         if (inputManager != null) {
@@ -239,6 +262,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     protected void onPause() {
+        settingsShortcut.reset();
         // Release RetroTouch state before SDL/native pause. RetroTouch itself owns
         // pointer tracking, while UE1 releases semantic actions on the next input tick.
         if (retroTouchBridgeV215 != null) {
@@ -264,6 +288,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
+        if (!hasFocus) settingsShortcut.reset();
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
             resetAndroidNativeControllerState(); // ANDROID_CONTROLLER_NATIVE_RESET_V88
@@ -381,6 +406,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (settingsShortcut.key(event)) return true;
         if (handleControllerGameplayToggleChordV22(event)) return true;
         if (event != null && isMenuStartKeyV124(event.getKeyCode())) {
             // UNREAL_ANDROID_START_MENU_TAP_V124:

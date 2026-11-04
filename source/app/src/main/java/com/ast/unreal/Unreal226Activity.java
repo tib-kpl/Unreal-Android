@@ -29,6 +29,9 @@ public class Unreal226Activity extends SDLActivity {
 
     private File root;
     private View settingsGear;
+    private GameSettingsMenu settingsMenu;
+    private final GameMenuShortcut settingsShortcut = new GameMenuShortcut(
+            this::openAndroidSettings, this::dispatchKeyEvent);
     private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
     private static native void nativeAimAssistSettings(int level);
     private static native void nativeCameraRollSettings(float amount);
@@ -106,6 +109,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     protected void onPause() {
+        settingsShortcut.reset();
         if (controllerInput != null) controllerInput.reset();
         if (touchBridge != null) touchBridge.pause();
         super.onPause();
@@ -193,6 +197,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (settingsShortcut.key(event)) return true;
         if (touchBridge != null) {
             int source = event.getSource();
             if ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
@@ -218,6 +223,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
+        if (!hasFocus) settingsShortcut.reset();
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) scheduleImmersiveRefresh();
         else if (controllerInput != null) controllerInput.reset();
@@ -225,6 +231,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     protected void onDestroy() {
+        if (settingsMenu != null) { settingsMenu.setOnDismissListener(null); settingsMenu.dismiss(); }
         GameTextInput.close(this);
         if (controllerInput != null) controllerInput.destroy();
         boolean cleanProcessExit = isFinishing() && !isChangingConfigurations();
@@ -266,17 +273,30 @@ public class Unreal226Activity extends SDLActivity {
     }
 
     private void installAndroidSettingsButton() {
-        settingsGear = AndroidSettingsGear.install(this, dataRoot(), false);
+        settingsGear = AndroidSettingsGear.install(this, this::openAndroidSettings);
     }
 
-    @Override
-    protected void onActivityResult(int request, int result, Intent data) {
-        super.onActivityResult(request, result, data);
-        if (request == GoldSettingsActivity.OPEN && result == GoldSettingsActivity.RESET_TOUCH && touchBridge != null) {
+    private void openAndroidSettings() {
+        if (settingsMenu != null && settingsMenu.isShowing()) return;
+        if (touchBridge != null) touchBridge.pause();
+        if (controllerInput != null) controllerInput.reset();
+        settingsMenu = GoldSettingsPanel.open(this, dataRoot(), false, result -> {
+            settingsMenu = null;
+            nativeCameraRollSettings(UnrealGold.cameraRoll(this));
+            nativeAimAssistSettings(UnrealGold.aimAssist(this));
+            nativeGoldDisplaySettings(UnrealGold.interfaceSize(this), UnrealGold.gamma(this));
+            if (touchBridge != null) touchBridge.start();
+            scheduleImmersiveRefresh();
+            onSettingsResult(result);
+        });
+    }
+
+    private void onSettingsResult(int result) {
+        if (result == GoldSettingsPanel.RESET_TOUCH && touchBridge != null) {
             touchBridge.resetLayout();
         }
-        if (request == GoldSettingsActivity.OPEN && result == GoldSettingsActivity.EDIT_TOUCH && touchBridge != null) {
-            // Wait for the bridge to restore its mode after the Activity resumes.
+        if (result == GoldSettingsPanel.EDIT_TOUCH && touchBridge != null) {
+            // Wait for the bridge to restore its mode after the overlay closes.
             settingsGear.postDelayed(() -> {
                 if (!touchBridge.startLayoutEditing()) {
                     boolean french = "fr".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage());
@@ -285,12 +305,11 @@ public class Unreal226Activity extends SDLActivity {
                 }
             }, 600);
         }
-        if (request != GoldSettingsActivity.OPEN
-                || (result != GoldSettingsActivity.RESTART && result != GoldSettingsActivity.DATA)) return;
+        if (result != GoldSettingsPanel.RESTART && result != GoldSettingsPanel.DATA) return;
         // The native engine cannot restart inside its process: start the
         // launcher in the main process and end this one.
         Intent launcher = new Intent(this, MainActivity.class);
-        launcher.putExtra(MainActivity.EXTRA_MANAGE_DATA, result == GoldSettingsActivity.DATA);
+        launcher.putExtra(MainActivity.EXTRA_MANAGE_DATA, result == GoldSettingsPanel.DATA);
         launcher.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(launcher);
         finish();

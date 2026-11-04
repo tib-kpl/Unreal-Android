@@ -45,13 +45,10 @@
             android:screenOrientation="landscape"
             android:theme="@style/GameTheme" />
 
-        <activity
-            android:name="com.ast.unreal.GoldSettingsActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-            android:exported="false"
-            android:process=":unreal226"
-            android:screenOrientation="landscape"
-            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
+        <!-- Only a confirmed v200 restart needs another process; the menu itself is a Dialog. -->
+        <activity android:name="com.ast.unreal.UnrealRestartActivity"
+            android:exported="false" android:process=":unreal226"
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <activity
             android:name="com.ast.unreal.MainActivity"

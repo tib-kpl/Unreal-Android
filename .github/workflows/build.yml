@@ -54,6 +54,12 @@ jobs:
       - name: Check Gold configuration migrations
         run: python3 ../tools/test_gold_config.py --android-jar "$ANDROID_HOME/platforms/android-36/android.jar"
 
+      - name: Check Android settings shortcut
+        run: python3 ../tools/test_settings_chord.py
+
+      - name: Check release publication recovery
+        run: python3 ../tools/test_publish_release.py
+
       - name: Build
         run: gradle --console=plain assembleNormalRelease assembleAutomotiveRelease
 
@@ -124,8 +130,8 @@ jobs:
           fi
           printf '%s\n\nCommit: %s/%s/commit/%s\nBuild: %s/%s/actions/runs/%s\n' "$subject" \
             "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/notes.md"
-          gh release create "$tag" dist/*.apk --target "$GITHUB_SHA" --latest \
-            --title "Unreal Android $version (build $GITHUB_RUN_NUMBER)" --notes-file "$RUNNER_TEMP/notes.md"
+          bash tools/publish_release.sh "$tag" "$GITHUB_SHA" \
+            "Unreal Android $version (build $GITHUB_RUN_NUMBER)" "$RUNNER_TEMP/notes.md" dist/*.apk
           gh release list --limit 100 --json tagName,createdAt \
             --jq '[.[] | select(.tagName | test("^(build-|v.*-build)"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
           while read -r old; do

@@ -3,6 +3,20 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.8
+
+- Replace the Android settings list with a bronze/stone Unreal-themed tabbed
+  menu for v200 and Gold, preserving each engine's available settings.
+- Show settings as a modal window over the game, with no Activity switch or
+  opening/closing animation. The game surface remains visible around the panel.
+- Show each option's default value and provide a confirmed reset of Android
+  settings, preserving custom touch layouts, game data and saved games.
+- Open with Select + Start in either order, or F10 on a keyboard. The existing
+  small gear appears only for touch input. Navigate with D-pad/stick, A/B and L1/R1.
+- Keep controller single-button bindings and clear pending shortcut input on pause.
+- Retry interrupted GitHub release creation/uploads using a draft, after the
+  previous build passed compilation/signing but hit HTTP 502 during publication.
+
 ## 2.4.7
 
 - Fix Gold translator messages and hints remaining English after Classic New

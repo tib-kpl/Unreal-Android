@@ -8,7 +8,7 @@ minimum SDK 24 update.
 
 The launcher can download and install the Gold disc hosted by OldUnreal,
 choose the language and installation folder, or use an existing Gold folder.
-The settings gear offers language, game menu, game data location, and touch
+The settings menu (Select + Start, F10, or the touch-only gear) offers language, game menu, game data location, and touch
 controller preferences. The classic HUD menu is the default; the Gold UMenu
 windows remain available in settings. This supports 226 data, not the 227 patch.
 
@@ -109,7 +109,7 @@ Immersive-mode refresh is suspended while this editor is open.
 
 ## Controller aim assistance
 
-The Android settings gear offers **Off / Light / Medium / Strong**, shared by
+The Android settings menu offers **Off / Light / Medium / Strong**, shared by
 v200 and Gold, defaulting to Medium. This adds camera tracking of hostile NPCs
 near the crosshair, alongside the original game's projectile auto-aim. It uses
 2.5/4/6 degree acquisition cones, progressively faster smoothing and bounded

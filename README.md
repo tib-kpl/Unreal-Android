@@ -92,8 +92,13 @@ working unchanged.
   game language (English, French, German, Spanish, Italian) and the location:
   internal storage, SD card, or any folder (Android "All files access" is then
   requested). An existing Unreal Gold folder can also be used in place.
-- **Android settings gear (v200 and Gold)** – in game, the gear at the top right opens the
-  on-screen controller settings (automatic/always/hidden, opacity, layout
+- **Android settings menu (v200 and Gold)** – press **Select + Start** (either order) to open
+  the bronze-themed settings menu. **L1/R1** switch tabs, the D-pad/stick navigates,
+  **A** confirms and **B** returns to the game. Keyboard users can press **F10**.
+  Settings open as a modal panel over the paused game, without page transitions.
+  Each option shows its default; a confirmed reset preserves touch layouts and game data.
+  The existing small gear at the top right appears only with touch input, without
+  a physical controller, keyboard or mouse. The menu offers the on-screen controller settings (automatic/always/hidden, opacity, layout
   editing and reset), the game language, the game menu, and the game data
   manager. The v200 language choices are automatic, French and English;
   the game menu choice applies to Gold.
