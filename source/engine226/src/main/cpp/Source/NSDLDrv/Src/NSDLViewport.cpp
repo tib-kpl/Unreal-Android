@@ -1,3 +1,7 @@
+#if defined(__ANDROID__)
+#include <atomic>
+#include <unistd.h>
+#endif
 /* UT99_ANDROID_V169L_CHECKBOX_TOUCH_ROOT_PATH */
 /* UT99_ANDROID_V81_CURSOR_MODE_SWITCH */
 /* UT99_ANDROID_V73_RESOLUTION_SCALE_RESTORED_START_TOGGLE */
@@ -5019,10 +5023,7 @@ while( SDL_PollEvent( &Ev ) )
 				QuitRequested = true;
 				return true;
 #if defined(__ANDROID__)
-            case SDL_USEREVENT + 0x22c:
-                AndroidAimLevel = Clamp<INT>(Ev.user.code, 0, 3);
-                AndroidAimPrevious = NULL;
-                break;
+
             case SDL_USEREVENT + 0x22b:
                 AndroidMenuApplyText((UObject*)Console, (FAndroidMenuTextResult*)Ev.user.data1);
                 break;

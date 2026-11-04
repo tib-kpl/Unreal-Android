@@ -1,3 +1,7 @@
+#if defined(__ANDROID__)
+#include <atomic>
+#include <unistd.h>
+#endif
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
@@ -3185,10 +3189,7 @@ UBOOL UNSDLViewport::TickInput()
                 AndroidAimPrevious = NULL;
                 AndroidAimStick = 0.f;
                 break;
-            case SDL_USEREVENT + 0x22c:
-                AndroidAimLevel = Clamp<INT>(Ev.user.code, 0, 3);
-                AndroidAimPrevious = NULL;
-                break;
+
             case SDL_USEREVENT + 0x22b:
                 AndroidMenuApplyText((UObject*)Console, (FAndroidMenuTextResult*)Ev.user.data1);
                 break;

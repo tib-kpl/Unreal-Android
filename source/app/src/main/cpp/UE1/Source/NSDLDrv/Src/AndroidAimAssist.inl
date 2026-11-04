@@ -1,24 +1,29 @@
 // Controller camera assistance, shared policy for v200 and retail 226.
 // Does not change the original game's projectile auto-aim or mouse input.
 #if defined(__ANDROID__)
-static INT AndroidAimLevel = 2;
+// Activity.onResume can precede SDL's event queue initialization.
+// Publish the preference atomically so cold launches retain Off/Light/Strong.
+static std::atomic<int> AndroidAimRequestedLevel(2);
+static INT AndroidAimLevel = -1;
 static UBOOL AndroidAimController = 0;
 static FLOAT AndroidAimStick = 0.f;
 static FLOAT AndroidAimSdlAxes[2] = {0.f,0.f};
 static APawn* AndroidAimPrevious = NULL; // compared only against live PawnList entries
 extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_UnrealSDLActivity_nativeAimAssistSettings(JNIEnv*, jclass, jint Level)
 {
-    SDL_Event Event;
-    SDL_zero(Event);
-    Event.type = SDL_USEREVENT + 0x22c;
-    Event.user.code = Clamp<INT>(Level, 0, 3);
-    SDL_PushEvent(&Event);
+    AndroidAimRequestedLevel.store(Clamp<INT>(Level, 0, 3));
 }
 
 static INT AndroidAimAngle(INT Angle) { return ((Angle + 32768) & 65535) - 32768; }
 
 static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
 {
+    INT Requested = AndroidAimRequestedLevel.load();
+    if(AndroidAimLevel != Requested) {
+        AndroidAimLevel = Requested;
+        AndroidAimPrevious = NULL;
+        __android_log_print(ANDROID_LOG_INFO, "AndroidAim", "aim assist level=%d", AndroidAimLevel);
+    }
     APlayerPawn* Player = V->Actor;
     if(!AndroidAimLevel || !AndroidAimController || AndroidAimStick > .65f || !Player
         || Player->Health <= 0 || !Player->Weapon || Player->bBehindView || Player->ViewTarget
