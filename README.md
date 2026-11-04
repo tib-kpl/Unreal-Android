@@ -93,7 +93,7 @@ working unchanged.
   internal storage, SD card, or any folder (Android "All files access" is then
   requested). An existing Unreal Gold folder can also be used in place.
 - **Android settings menu (v200 and Gold)** – press **Select + Start** (either order) to open
-  the bronze-themed settings menu. **L1/R1** switch tabs, the D-pad/stick navigates,
+  the bronze-themed settings menu. **L1/R1** switch categories, the D-pad/stick navigates,
   **A** confirms and **B** returns to the game. Keyboard users can press **F10**.
   Settings open as a modal panel over the paused game, without page transitions.
   Each option shows its default; a confirmed reset preserves touch layouts and game data.

@@ -3,6 +3,13 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.9
+
+- Refine the in-game settings overlay with a branded navigation rail, drawn
+  category icons, compact setting cards and right-aligned values/defaults.
+- Use consistent sliders and clearer controller focus with theme-matched
+  confirmations. Keep the instant overlay, pause/resume and all existing options.
+
 ## 2.4.8
 
 - Replace the Android settings list with a bronze/stone Unreal-themed tabbed
