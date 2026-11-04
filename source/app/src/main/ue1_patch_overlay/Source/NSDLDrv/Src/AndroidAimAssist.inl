@@ -3,12 +3,18 @@
 #if defined(__ANDROID__)
 // Activity.onResume can precede SDL's event queue initialization.
 // Publish the preference atomically so cold launches retain Off/Light/Strong.
+#include "AndroidAimSmoothing.h"
 static std::atomic<int> AndroidAimRequestedLevel(2);
 static INT AndroidAimLevel = -1;
 static UBOOL AndroidAimController = 0;
 static FLOAT AndroidAimStick = 0.f;
 static FLOAT AndroidAimSdlAxes[2] = {0.f,0.f};
 static APawn* AndroidAimPrevious = NULL; // compared only against live PawnList entries
+static AndroidAimMotion::Axis AndroidAimYawMotion, AndroidAimPitchMotion;
+static void AndroidResetAim() {
+    AndroidAimPrevious = NULL;
+    AndroidAimYawMotion.Reset(); AndroidAimPitchMotion.Reset();
+}
 extern "C" JNIEXPORT void JNICALL Java_com_ast_unreal_UnrealSDLActivity_nativeAimAssistSettings(JNIEnv*, jclass, jint Level)
 {
     AndroidAimRequestedLevel.store(Clamp<INT>(Level, 0, 3));
@@ -21,20 +27,20 @@ static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
     INT Requested = AndroidAimRequestedLevel.load();
     if(AndroidAimLevel != Requested) {
         AndroidAimLevel = Requested;
-        AndroidAimPrevious = NULL;
+        AndroidResetAim();
         __android_log_print(ANDROID_LOG_INFO, "AndroidAim", "aim assist level=%d", AndroidAimLevel);
     }
     APlayerPawn* Player = V->Actor;
     if(!AndroidAimLevel || !AndroidAimController || AndroidAimStick > .65f || !Player
         || Player->Health <= 0 || !Player->Weapon || Player->bBehindView || Player->ViewTarget
         || Player->bShowMenu || (Player->myHUD && Player->myHUD->MainMenu))
-    { AndroidAimPrevious = NULL; return; }
+    { AndroidResetAim(); return; }
     UObject* Console = (UObject*)V->Console;
     if(Console && Console->GetMainFrame() && Console->GetMainFrame()->StateNode)
     {
         FName State = Console->GetMainFrame()->StateNode->GetFName();
         if(State == "Typing" || State == "MenuTyping" || State == "KeyMenuing" || State == "Menuing")
-        { AndroidAimPrevious = NULL; return; }
+        { AndroidResetAim(); return; }
     }
     static const FLOAT Cone[4] = {0.f, 2.5f, 4.f, 6.f};
     static const FLOAT Response[4] = {0.f, 2.5f, 4.f, 6.f};
@@ -68,13 +74,10 @@ static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
         BestDirection = Point - Eye;
     }
     AndroidAimPrevious = Best;
-    if(!Best) return;
+    if(!Best) { AndroidResetAim(); return; }
     FRotator Aim = BestDirection.Rotation();
-    FLOAT Dt = Clamp(DeltaTime, 0.f, .05f);
-    FLOAT Blend = (1.f - (FLOAT)exp(-Response[AndroidAimLevel] * Dt)) * (1.f - AndroidAimStick);
-    FLOAT MaxStep = Speed[AndroidAimLevel] * (65536.f / 360.f) * Dt;
-    INT Yaw = appRound(Clamp(AndroidAimAngle(Aim.Yaw - Player->ViewRotation.Yaw) * Blend, -MaxStep, MaxStep));
-    INT Pitch = appRound(Clamp(AndroidAimAngle(Aim.Pitch - Player->ViewRotation.Pitch) * Blend, -MaxStep, MaxStep));
+    INT Yaw = AndroidAimYawMotion.Step(AndroidAimAngle(Aim.Yaw - Player->ViewRotation.Yaw), Response[AndroidAimLevel], Speed[AndroidAimLevel], DeltaTime, AndroidAimStick);
+    INT Pitch = AndroidAimPitchMotion.Step(AndroidAimAngle(Aim.Pitch - Player->ViewRotation.Pitch), Response[AndroidAimLevel], Speed[AndroidAimLevel], DeltaTime, AndroidAimStick);
     Player->ViewRotation.Yaw = (Player->ViewRotation.Yaw + Yaw) & 65535;
     Player->ViewRotation.Pitch = (Player->ViewRotation.Pitch + Pitch) & 65535;
 }

@@ -57,6 +57,12 @@ jobs:
       - name: Check Android settings shortcut
         run: python3 ../tools/test_settings_chord.py
 
+      - name: Check aim smoothing
+        run: |
+          cmp app/src/main/ue1_patch_overlay/Source/NSDLDrv/Src/AndroidAimSmoothing.h engine226/src/main/cpp/Source/NSDLDrv/Src/AndroidAimSmoothing.h
+          c++ -std=c++11 -O2 -I app/src/main/ue1_patch_overlay/Source/NSDLDrv/Src ../tools/tests/aim_smoothing.cpp -o "$RUNNER_TEMP/aim-smoothing-test"
+          "$RUNNER_TEMP/aim-smoothing-test"
+
       - name: Check release publication recovery
         run: python3 ../tools/test_publish_release.py
 

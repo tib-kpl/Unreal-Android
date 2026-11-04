@@ -3186,7 +3186,7 @@ UBOOL UNSDLViewport::TickInput()
 #if defined(__ANDROID__)
             case SDL_CONTROLLERDEVICEREMOVED:
                 AndroidAimController = 0;
-                AndroidAimPrevious = NULL;
+                AndroidResetAim();
                 AndroidAimStick = 0.f;
                 break;
 

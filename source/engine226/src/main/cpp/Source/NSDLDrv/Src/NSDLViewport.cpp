@@ -4998,7 +4998,7 @@ while( SDL_PollEvent( &Ev ) )
             }
             case SDL_CONTROLLERDEVICEREMOVED:
                 AndroidAimController = 0;
-                AndroidAimPrevious = NULL;
+                AndroidResetAim();
                 AndroidAimStick = 0.f;
             {
                 // For REMOVED, cdevice.which is the SDL joystick instance id.
