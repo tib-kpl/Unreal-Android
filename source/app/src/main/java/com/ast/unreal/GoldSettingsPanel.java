@@ -33,7 +33,7 @@ final class GoldSettingsPanel extends ContextWrapper {
         String currentLanguage = v200 ? UnrealDataPaths.gameLanguagePreference(this) : UnrealGold.language(this);
         selectedLanguage = currentLanguage;
         selectedClassicMenu = UnrealGold.classicMenu(this);
-        menu = new GameSettingsMenu(activity, false);
+        menu = new GameSettingsMenu(activity, false, v200 ? R.drawable.menu_logo_unreal : R.drawable.menu_logo_gold);
         menu.setOnDismissListener(dialog -> { if (!activity.isFinishing()) completed.complete(result); });
         menu.page(text("Commandes", "Controls"), this::controls);
         menu.page(text("Confort", "Comfort"), this::comfort);

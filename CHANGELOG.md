@@ -3,6 +3,12 @@
 Changes of this fork ([tib-kpl/Unreal-Android](https://github.com/tib-kpl/Unreal-Android)).
 Upstream changes are listed in [Andiweli/Unreal-Android](https://github.com/Andiweli/Unreal-Android/releases).
 
+## 2.4.10
+
+- Use the original Unreal and Unreal Gold wordmarks in the settings menu,
+  replacing the drawn U emblem and typeset imitation. Preserve the PNGs
+  and their proportions; record image sources in docs/MENU_LOGOS.md.
+
 ## 2.4.9
 
 - Refine the in-game settings overlay with a branded navigation rail, drawn
