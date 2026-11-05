@@ -279,6 +279,9 @@ static void UE1AndroidNativeControllerResetState()
 
 static BYTE UE1AndroidNativeDirectionalAxisKey( INT Axis, INT Direction );
 
+#include "AndroidScoreboard.h"
+static AndroidScoreboardState AndroidControllerScores;
+
 static void UE1AndroidNativeControllerReleaseHeldKeys( UNSDLViewport* Viewport, const SWORD* JoyAxisValues, const BYTE* JoyAxisKeys, INT PressThreshold )
 {
 	// UNREAL_ANDROID_CONTROLLER_RESET_RELEASE_V222
@@ -289,6 +292,7 @@ static void UE1AndroidNativeControllerReleaseHeldKeys( UNSDLViewport* Viewport, 
 	if( !Viewport )
 		return;
 
+	AndroidControllerScores.Update(Viewport->Actor,false);
 	for( INT Key=1; Key<IK_MAX; ++Key )
 	{
 		if( GAndroidNativeButtonPressed[Key] )
@@ -3533,6 +3537,12 @@ UBOOL UNSDLViewport::TickInput()
 				continue; // UNREAL_ANDROID_RETROTOUCH_INTRO_TAP_V217: intro accepts only Escape/Menu
 			if( NE.Type == 1 )
 			{
+                if( !bRetroTouchEventV216 && NE.KeyCode==98 )
+                {
+                    const UBOOL Down=NE.Action==0 && !bEventIsInUIV219;
+                    AndroidControllerScores.Update(Actor,Down!=0);
+                    continue;
+                }
 				if( bRetroTouchEventV216 && UE1AndroidRetroTouchActionHandleV215( this, NE.KeyCode, NE.Action == 0, bEventIsInUIV219, bIsKeyMenuing ) ) // UNREAL_ANDROID_RETROTOUCH_V215 UNREAL_ANDROID_RETROTOUCH_NO_CONTROLLER_V216
 					continue;
 

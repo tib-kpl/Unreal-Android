@@ -27,6 +27,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     private UnrealRetroTouchBridge retroTouchBridgeV215; // UNREAL_ANDROID_RETROTOUCH_V215
     private View settingsGear;
     private GameSettingsMenu settingsMenu;
+    private final ControllerMapping controllerMapping = new ControllerMapping(this, this::dispatchKeyEvent);
     private final GameMenuShortcut settingsShortcut = new GameMenuShortcut(
             this::openAndroidSettings, this::dispatchKeyEvent);
     private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
@@ -262,6 +263,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     protected void onPause() {
+        controllerMapping.stop();
         settingsShortcut.reset();
         // Release RetroTouch state before SDL/native pause. RetroTouch itself owns
         // pointer tracking, while UE1 releases semantic actions on the next input tick.
@@ -275,6 +277,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     @Override
     protected void onResume() {
         super.onResume();
+        controllerMapping.start();
         nativeCameraRollSettings(UnrealGold.cameraRoll(this));
         nativeAimAssistSettings(UnrealGold.aimAssist(this));
         resetAndroidNativeControllerState(); // ANDROID_CONTROLLER_NATIVE_RESET_V88
@@ -288,7 +291,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
-        if (!hasFocus) settingsShortcut.reset();
+        if (!hasFocus) { controllerMapping.reset(); settingsShortcut.reset(); }
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
             resetAndroidNativeControllerState(); // ANDROID_CONTROLLER_NATIVE_RESET_V88
@@ -407,6 +410,7 @@ public class UnrealSDLActivity extends SDLActivity implements InputManager.Input
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (settingsShortcut.key(event)) return true;
+        if (controllerMapping.key(event)) return true;
         if (handleControllerGameplayToggleChordV22(event)) return true;
         if (event != null && isMenuStartKeyV124(event.getKeyCode())) {
             // UNREAL_ANDROID_START_MENU_TAP_V124:

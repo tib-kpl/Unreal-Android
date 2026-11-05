@@ -5693,7 +5693,12 @@ while( SDL_PollEvent( &Ev ) )
                 GoldPadSyncMenu(this);
                 const INT Key=Ev.user.code;
                 const UBOOL Down=(PTRINT)Ev.user.data1!=0;
-                if( bShowWindowsMouse )
+                if( Key==98 )
+                {
+                    const UBOOL Scores=Down && !GoldPadInMenu(this);
+                    GoldControllerScores.Update(Actor,Scores!=0);
+                }
+                else if( bShowWindowsMouse )
                 {
                     const INT Button=GoldPadAndroidButton(Key);
                     if( Button>=0 ) UT99AndroidMenuControllerButtonV43(this,Button,Down);

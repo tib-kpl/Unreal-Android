@@ -1,5 +1,7 @@
 // Gold uses v200 Android key/axis normalization for built-in, USB and Bluetooth
 // controllers. SDL is retained as a fallback; duplicate raw JOY events are dropped.
+#include "AndroidScoreboard.h"
+static AndroidScoreboardState GoldControllerScores;
 static UBOOL GoldPadKeys[IK_MAX] = {0};
 static INT GoldPadButtons[SDL_CONTROLLER_BUTTON_MAX] = {0};
 static FLOAT GoldPadAxes[SDL_CONTROLLER_AXIS_MAX] = {0};
@@ -179,6 +181,7 @@ static void GoldPadKey( UNSDLViewport* V, INT Key, UBOOL Down )
 
 static void GoldPadReset( UNSDLViewport* V )
 {
+    GoldControllerScores.Update(V->Actor,false);
     for( INT Key=1; Key<IK_MAX; ++Key ) GoldPadKey(V, Key, 0);
     UE1AndroidResetToggleComboInputV21();
     UT99V47ReleaseGameplayStatesV79(V);

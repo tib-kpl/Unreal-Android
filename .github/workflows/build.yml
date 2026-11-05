@@ -57,6 +57,14 @@ jobs:
       - name: Check Android settings shortcut
         run: python3 ../tools/test_settings_chord.py
 
+      - name: Check controller scoreboard
+        run: |
+          c++ -std=c++11 -O2 -I app/src/main/ue1_patch_overlay/Source/NSDLDrv/Src ../tools/tests/controller_scores.cpp -o "$RUNNER_TEMP/controller-scores"
+          "$RUNNER_TEMP/controller-scores"
+
+      - name: Check controller profiles
+        run: python3 ../tools/test_controller_mapping.py
+
       - name: Check aim smoothing
         run: |
           cmp app/src/main/ue1_patch_overlay/Source/NSDLDrv/Src/AndroidAimSmoothing.h engine226/src/main/cpp/Source/NSDLDrv/Src/AndroidAimSmoothing.h

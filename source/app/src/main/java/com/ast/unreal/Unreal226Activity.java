@@ -30,6 +30,7 @@ public class Unreal226Activity extends SDLActivity {
     private File root;
     private View settingsGear;
     private GameSettingsMenu settingsMenu;
+    private final ControllerMapping controllerMapping = new ControllerMapping(this, this::dispatchKeyEvent);
     private final GameMenuShortcut settingsShortcut = new GameMenuShortcut(
             this::openAndroidSettings, this::dispatchKeyEvent);
     private final Runnable restoreImmersive = () -> { if (hasWindowFocus()) hideSystemUi(); };
@@ -109,6 +110,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     protected void onPause() {
+        controllerMapping.stop();
         settingsShortcut.reset();
         if (controllerInput != null) controllerInput.reset();
         if (touchBridge != null) touchBridge.pause();
@@ -118,6 +120,7 @@ public class Unreal226Activity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        controllerMapping.start();
         nativeCameraRollSettings(UnrealGold.cameraRoll(this));
         nativeAimAssistSettings(UnrealGold.aimAssist(this));
         if (controllerInput != null) nativeGoldDisplaySettings(UnrealGold.interfaceSize(this), UnrealGold.gamma(this));
@@ -198,6 +201,7 @@ public class Unreal226Activity extends SDLActivity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (settingsShortcut.key(event)) return true;
+        if (controllerMapping.key(event)) return true;
         if (touchBridge != null) {
             int source = event.getSource();
             if ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
@@ -223,7 +227,7 @@ public class Unreal226Activity extends SDLActivity {
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
-        if (!hasFocus) settingsShortcut.reset();
+        if (!hasFocus) { controllerMapping.reset(); settingsShortcut.reset(); }
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) scheduleImmersiveRefresh();
         else if (controllerInput != null) controllerInput.reset();

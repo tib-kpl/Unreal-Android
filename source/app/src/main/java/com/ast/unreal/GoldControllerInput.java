@@ -57,7 +57,7 @@ final class GoldControllerInput implements InputManager.InputDeviceListener {
                 default: return false;
             }
         }
-        if (key != 82 && !(key >= 96 && key <= 110 && key != 98 && key != 101)
+        if (key != 82 && !(key >= 96 && key <= 110 && key != 101)
                 && !(key >= 19 && key <= 22)) return false;
         if (event.getAction() != KeyEvent.ACTION_DOWN && event.getAction() != KeyEvent.ACTION_UP) return true;
         if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() != 0) return true;

@@ -36,6 +36,7 @@ final class GoldSettingsPanel extends ContextWrapper {
         menu = new GameSettingsMenu(activity, false, v200 ? R.drawable.menu_logo_unreal : R.drawable.menu_logo_gold);
         menu.setOnDismissListener(dialog -> { if (!activity.isFinishing()) completed.complete(result); });
         menu.page(text("Commandes", "Controls"), this::controls);
+        menu.page(text("Manette", "Controller"), () -> ControllerMapping.page(this, menu, false, french));
         menu.page(text("Confort", "Comfort"), this::comfort);
         if (!v200) menu.page(text("Affichage", "Display"), this::display);
         menu.page(text("Jeu", "Game"), this::game);
