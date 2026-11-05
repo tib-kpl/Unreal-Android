@@ -28,7 +28,8 @@ static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
     if(AndroidAimLevel != Requested) {
         AndroidAimLevel = Requested;
         AndroidResetAim();
-        __android_log_print(ANDROID_LOG_INFO, "AndroidAim", "aim assist level=%d", AndroidAimLevel);
+        const AndroidAimMotion::Profile& P = AndroidAimMotion::ProfileFor(AndroidAimLevel, false);
+        __android_log_print(ANDROID_LOG_INFO, "AndroidAim", "aim assist level=%d cone=%.1f response=%.1f speed=%.1f", AndroidAimLevel, P.cone, P.response, P.speed);
     }
     APlayerPawn* Player = V->Actor;
     if(!AndroidAimLevel || !AndroidAimController || AndroidAimStick > .65f || !Player
@@ -42,9 +43,7 @@ static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
         if(State == "Typing" || State == "MenuTyping" || State == "KeyMenuing" || State == "Menuing")
         { AndroidResetAim(); return; }
     }
-    static const FLOAT Cone[4] = {0.f, 2.5f, 4.f, 6.f};
-    static const FLOAT Response[4] = {0.f, 2.5f, 4.f, 6.f};
-    static const FLOAT Speed[4] = {0.f, 12.f, 24.f, 42.f}; // degrees / second
+    const AndroidAimMotion::Profile& Profile = AndroidAimMotion::ProfileFor(AndroidAimLevel, false);
     FVector Eye = Player->Location + FVector(0, 0, Player->EyeHeight);
     FVector Forward = Player->ViewRotation.Vector();
     APawn* Best = NULL;
@@ -63,7 +62,7 @@ static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
         Direction *= 1.f / Distance;
         FLOAT Dot = Forward | Direction;
         UBOOL Previous = Target == AndroidAimPrevious;
-        FLOAT Threshold = (FLOAT)cos((Cone[AndroidAimLevel] + (Previous ? 1.5f : 0.f)) * PI / 180.f);
+        FLOAT Threshold = (FLOAT)cos((Profile.cone + (Previous ? 1.5f : 0.f)) * PI / 180.f);
         FLOAT Score = Dot + (Previous ? .003f : 0.f);
         if(Dot < Threshold || Score <= BestScore) continue;
         FCheckResult Hit(1.f);
@@ -76,8 +75,8 @@ static void AndroidApplyAimAssist(UNSDLViewport* V, FLOAT DeltaTime)
     AndroidAimPrevious = Best;
     if(!Best) { AndroidResetAim(); return; }
     FRotator Aim = BestDirection.Rotation();
-    INT Yaw = AndroidAimYawMotion.Step(AndroidAimAngle(Aim.Yaw - Player->ViewRotation.Yaw), Response[AndroidAimLevel], Speed[AndroidAimLevel], DeltaTime, AndroidAimStick);
-    INT Pitch = AndroidAimPitchMotion.Step(AndroidAimAngle(Aim.Pitch - Player->ViewRotation.Pitch), Response[AndroidAimLevel], Speed[AndroidAimLevel], DeltaTime, AndroidAimStick);
+    INT Yaw = AndroidAimYawMotion.Step(AndroidAimAngle(Aim.Yaw - Player->ViewRotation.Yaw), Profile.response, Profile.speed, DeltaTime, AndroidAimStick);
+    INT Pitch = AndroidAimPitchMotion.Step(AndroidAimAngle(Aim.Pitch - Player->ViewRotation.Pitch), Profile.response, Profile.speed, DeltaTime, AndroidAimStick);
     Player->ViewRotation.Yaw = (Player->ViewRotation.Yaw + Yaw) & 65535;
     Player->ViewRotation.Pitch = (Player->ViewRotation.Pitch + Pitch) & 65535;
 }
