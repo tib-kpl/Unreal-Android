@@ -804,8 +804,8 @@ public class MainActivity extends Activity {
             intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             if (Build.VERSION.SDK_INT >= 19) intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-            Intent chooser = Intent.createChooser(intent, t("Unreal-ZIP auswählen", "Select Unreal ZIP file"));
-            startActivityForResult(chooser, REQ_SELECT_UNREAL_ZIP);
+            // Let Android use its default document explorer.
+            startActivityForResult(intent, REQ_SELECT_UNREAL_ZIP);
         } catch (ActivityNotFoundException ex) {
             lastImportMessage = t(
                     "Auf diesem Gerät wurde kein kompatibler Dateiauswahldialog gefunden: ",
